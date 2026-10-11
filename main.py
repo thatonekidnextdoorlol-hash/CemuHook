@@ -23,7 +23,7 @@ def readunit(backend, base, guest, size):
     habo =  backend.read(hostaddress, size)
     return int.from_bytes(habo, "big")
 
-def primaryscan(backend, base, value, size):
+def primaryscan(backend, base, value, size, progress = None):
      target = value.to_bytes(size, "big")
      found = []
      
@@ -36,16 +36,20 @@ def primaryscan(backend, base, value, size):
          while position != -1:
              found.append(guest + position)
              position = chunk.find(target, position+1)
+         if progress is not None:
+            progress(guest-0x10000000 + 0x100000)
      return found
 
-def nextscan(backend, base, found, value, size):
+def nextscan(backend, base, found, value, size, progress = None):
      survivors = []
-     for addr in found:
+     for i, addr in enumerate(found):
          if readunit(backend, base, addr, size) == value:
              survivors.append(addr)
+         if progress is not None and i%10000==0:
+             progress(i,len(found))
      return survivors
 
-if __name__ == "__main__":
+if __name__ == "__main__": # just to make sure the terminal doesn't open
 
      backend = WindowsBackend()
 
