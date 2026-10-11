@@ -1,13 +1,18 @@
 import tkinter as tk
 from tkinter import ttk
 from main import WindowsBackend, findbase, primaryscan, nextscan
+import os
 
 found = []
 scansize = 2
+buttonstate = "!disabled"
 
 root = tk.Tk()
 root.title("CemuTap")
 root.geometry("800x400")
+
+icon = tk.PhotoImage(file=os.path.join(os.path.dirname(__file__), "GABEWARE.png"))
+root.iconphoto(False,icon)
 
 valuelabel = ttk.Label(root,text="Value:")
 valuelabel.grid(row=0, column=0, padx=8, pady=8)
@@ -26,20 +31,24 @@ def showmatches():
 
 def scana():
     global found, scansize
-    if backend is not None:
-        try:
-            value = int(valuebox.get())
-            bytesize = int(size.get())
-        except ValueError:
-            scanstatus.config(text="Value must be a whole number and include only numbers.")
-            return
+    if backend is None:
+        scanstatus.config(text="Not attached to Cemu.")
+        return 
+    try:
+        value = int(valuebox.get())
+        bytesize = int(size.get())
+    except ValueError:
+        scanstatus.config(text="Value must be a whole number and include only numbers.")
+        return  
+    togglebuttons("disabled")
+    try:
         found = primaryscan(backend, base, value, bytesize, progress=totalprogress)
         scansize=bytesize
         scanstatus.config(text=f"{len(found)} Address Matches Found")
-        showmatches()
-    else:
-        scanstatus.config(text="Not attached to Cemu.")
-        return
+        showmatches() 
+    finally:
+        togglebuttons("!disabled")
+    
 
 def totalprogress(scanned):
     scanstatus.config(text=f"Scanned {scanned // 0x100000} of 1024 MB")
@@ -56,6 +65,7 @@ def scanb():
     global found
     if backend is not None:
         if found:
+            togglebuttons("disabled")
             try:
                 value = int(valuebox.get())
                 found = nextscan(backend,base,found,value,scansize, progress=progress2)
@@ -64,6 +74,8 @@ def scanb():
             except ValueError:
                 scanstatus.config(text="Value must be a whole number and include only numbers.")
                 return
+            finally:
+                togglebuttons("!disabled")   
         else:
             scanstatus.config(text=f"First Scan Not Found")
             return
@@ -82,6 +94,17 @@ results.grid(row=0,column=2,rowspan=5,padx=8,pady=8)
 
 scanstatus = ttk.Label(root, text="Ready")
 scanstatus.grid(row=4,column=0,columnspan=2,padx=8,pady=8)
+
+def togglebuttons(override):
+    global buttonstate
+    if buttonstate == "!disabled":
+        buttonstate = "disabled"
+    elif buttonstate == "disabled":
+        buttonstate = "!disabled"
+    if override is not None:
+        buttonstate = override
+    primaryscanbutton.state([buttonstate])
+    nextscanbutton.state([buttonstate])
 
 try:
     backend = WindowsBackend()
