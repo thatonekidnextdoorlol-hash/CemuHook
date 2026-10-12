@@ -153,6 +153,12 @@ importbutton.grid(row=5,column=1,padx=8,pady=8)
 resettable = ttk.Button(root, text="Clear Address Table", command=cleartableevent)
 resettable.grid(row=5,column=2,padx=8,pady=8)
 
+def refloop():
+    if 0<len(found)<=12:
+        showmatches()
+    root.after(1000,refloop)
+
+
 try:
     backend = WindowsBackend()
     base = findbase()
@@ -161,4 +167,5 @@ except Exception as e:
     backend = None
     scanstatus.config(text=f"!!! Cemu Attach Failed: {e}")
 
+refloop()
 root.mainloop()
