@@ -42,9 +42,20 @@ def primaryscan(backend, base, value, size, progress = None):
      return found
 
 def nextscan(backend, base, found, value, size, progress = None):
+     target=value.to_bytes(size,"big")
      survivors = []
+     start=None
+     chunk=None
      for i, addr in enumerate(found):
-         if readunit(backend, base, addr, size) == value:
+         chunkbegin = addr // 0x100000 * 0x100000
+         offset=addr-chunkbegin
+         if chunkbegin!=start:
+             try:
+                 chunk = backend.read(base+chunkbegin, 0x100000 + size)
+             except Exception:
+                 chunk=None
+             start=chunkbegin
+         if chunk is not None and chunk[offset:offset+size]==target:
              survivors.append(addr)
          if progress is not None and i%10000==0:
              progress(i,len(found))
