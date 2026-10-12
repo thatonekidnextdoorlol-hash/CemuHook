@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit
 import os
 from datetime import datetime
 
@@ -29,7 +29,11 @@ size.set("2")
 def showmatches():
     results.delete(0, "end")
     for addr in found[:500]:
-        results.insert("end", hex(addr))
+        try:
+            val=readunit(backend,base,addr,scansize)
+        except Exception:
+            val = "?"
+        results.insert("end", f"{hex(addr)} ({val})")
 
 def scana():
     global found, scansize
@@ -86,6 +90,8 @@ def scanb():
 
 def cleartableevent():
     global found
+    if found == []:
+        return
     found = []
     showmatches()
     scanstatus.config(text=f"Address Table Cleared.")
@@ -137,7 +143,7 @@ def importbuttonevent():
         scanstatus.config(text=f"Successfully imported CemuTap Scan file.")
         showmatches()
     except Exception:
-        scanstatus.config(text="!!! Could not read import. Are you sure this is a CemuTap Scan File? {}")
+        scanstatus.config(text="!!! Could not read import. Are you sure this is a CemuTap Scan File?")
 
 
 exportbutton = ttk.Button(root,text="Export Scan", command=exportbuttonevent)
