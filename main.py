@@ -1,6 +1,7 @@
 import pymem
 import re
 import os
+import json
 
 class WindowsBackend:
     def __init__(self):
@@ -49,7 +50,17 @@ def nextscan(backend, base, found, value, size, progress = None):
              progress(i,len(found))
      return survivors
 
-if __name__ == "__main__": # just to make sure the terminal doesn't open
+def export(path, found, size):
+    data = {"version": 1, "size": size, "addresses": found}
+    with open(path,"w") as f:
+        json.dump(data,f)
+
+def importscan(path):
+    with open(path) as f:
+        data=json.load(f)
+        return data["addresses"],data["size"]
+
+if __name__ == "__main__": # just to make sure the terminal doesn't open :P
 
      backend = WindowsBackend()
 

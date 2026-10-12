@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from main import WindowsBackend, findbase, primaryscan, nextscan
+from tkinter import filedialog
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan
 import os
+from datetime import datetime
 
 found = []
 scansize = 2
@@ -105,6 +107,38 @@ def togglebuttons(override):
         buttonstate = override
     primaryscanbutton.state([buttonstate])
     nextscanbutton.state([buttonstate])
+
+def exportbuttonevent():
+    if not found:
+        scanstatus.config(text=f"No addresses found to export.")
+        return
+    now=datetime.now()
+    path = filedialog.asksaveasfilename(defaultextension=".ctms", initialfile=f"scan-{now.strftime('%m-%d-%Y-%H-%M')}", filetypes=[("CemuTap Scan", "*.ctms")])
+    if not path:
+        scanstatus.config(text=f"Save Canceled.")
+        return
+    export(path, found, scansize)
+    scanstatus.config(text=f"Scan Exported.")
+
+def importbuttonevent():
+    global found, scansize
+    try:
+        path=filedialog.askopenfilename(filetypes=[("CemuTap Scan", "*.ctms")])
+        if path=="":
+            scanstatus.config(text=f"Import Canceled.")
+            return
+        found, scansize = importscan(path)
+        size.set(str(scansize))
+        scanstatus.config(text=f"Successfully imported CemuTap Scan file.")
+        showmatches()
+    except Exception:
+        scanstatus.config(text="!!! Could not read import. Are you sure this is a CemuTap Scan File? {}")
+
+
+exportbutton = ttk.Button(root,text="Export Scan", command=exportbuttonevent)
+exportbutton.grid(row=5,column=0,padx=8,pady=8)
+importbutton = ttk.Button(root,text="Import Scan", command=importbuttonevent)
+importbutton.grid(row=5,column=1,padx=8,pady=8)
 
 try:
     backend = WindowsBackend()
