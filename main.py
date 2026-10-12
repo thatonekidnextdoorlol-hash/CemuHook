@@ -53,7 +53,10 @@ def nextscan(backend, base, found, value, size, progress = None):
              try:
                  chunk = backend.read(base+chunkbegin, 0x100000 + size)
              except Exception:
-                 chunk=None
+                 try:
+                     chunk=backend.read(base+chunkbegin,0x100000)
+                 except Exception:
+                     chunk=None
              start=chunkbegin
          if chunk is not None and chunk[offset:offset+size]==target:
              survivors.append(addr)

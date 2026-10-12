@@ -84,6 +84,11 @@ def scanb():
     else:
         scanstatus.config(text="Not attached to Cemu.")
 
+def cleartableevent():
+    global found
+    found = []
+    showmatches()
+    scanstatus.config(text=f"Address Table Cleared.")
 
 bytesizelabel = ttk.Label(root, text="Byte Size To Query: ")
 bytesizelabel.grid(row=1, column=0, padx=8, pady=8)
@@ -139,6 +144,8 @@ exportbutton = ttk.Button(root,text="Export Scan", command=exportbuttonevent)
 exportbutton.grid(row=5,column=0,padx=8,pady=8)
 importbutton = ttk.Button(root,text="Import Scan", command=importbuttonevent)
 importbutton.grid(row=5,column=1,padx=8,pady=8)
+resettable = ttk.Button(root, text="Clear Address Table", command=cleartableevent)
+resettable.grid(row=5,column=2,padx=8,pady=8)
 
 try:
     backend = WindowsBackend()
