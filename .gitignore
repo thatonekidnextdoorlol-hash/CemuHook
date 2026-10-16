@@ -3,3 +3,4 @@ build/
 dist/
 CemuTap.spec
 __pycache__/
+.venv/

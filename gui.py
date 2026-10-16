@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate
 import os
 from datetime import datetime
 
@@ -46,6 +46,9 @@ def scana():
     except ValueError:
         scanstatus.config(text="Value must be a whole number and include only numbers.")
         return  
+    if not 0<=value<256**bytesize:
+        scanstatus.config(text=f"Value must be between 0 and {256 ** bytesize -1}.")
+        return
     togglebuttons("disabled")
     try:
         found = primaryscan(backend, base, value, bytesize, progress=totalprogress)
@@ -74,6 +77,9 @@ def scanb():
             togglebuttons("disabled")
             try:
                 value = int(valuebox.get())
+                if not 0<=value<256**scansize:
+                    scanstatus.config(text=f"Value must be between 0 and {256 ** scansize -1}.")
+                    return
                 found = nextscan(backend,base,found,value,scansize, progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
                 showmatches()
@@ -160,7 +166,7 @@ def refloop():
 
 
 try:
-    backend = WindowsBackend()
+    backend = backendcreate()
     base = findbase()
     scanstatus.config(text=f"Attached to Cemu: {hex(base)}")
 except Exception as e:

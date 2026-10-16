@@ -1,19 +1,53 @@
-import pymem
+import psutil
 import re
 import os
 import json
+import sys
 
 class WindowsBackend:
     def __init__(self):
+        import pymem
         self.pm = pymem.Pymem("cemu.exe")
 
     def read(self, address, size):
         return self.pm.read_bytes(address, size)
-        
+
+class LinuxBackend:
+    def __init__(self,pid):
+        self.f = open(f"/proc/{pid}/mem", "rb")
+    def read(self,address,size):
+        self.f.seek(address)
+        return self.f.read(size)
+    import psutil
+
+def cemupid():
+    for process in psutil.process_iter(["name"]):
+        name=process.info["name"]
+        if name and name.lower() == "cemu":
+            return process.pid
+
+def backendcreate():
+    if sys.platform=="win32":
+        return WindowsBackend()
+    # linux seperator
+    pid=cemupid()
+    if pid is None:
+        raise RuntimeError("Cemu Instance Not Detected: Is Cemu even running?")
+    return LinuxBackend(pid)
+
+def findlog():
+    if sys.platform=="win32":
+        return os.path.join(os.environ["APPDATA"],"Cemu","log.txt")
+    candidates=["~/.var/app/info.cemu.Cemu/data/Cemu/log.txt","~/.local/share/Cemu/log.txt"]
+    for path in candidates:
+        fpath=os.path.expanduser(path)
+        if os.path.exists(fpath):
+            return fpath
+    return None
     
 def findbase():
         pattern = r"base: 0x([0-9a-fA-F]+)"
-        logpath = os.path.join(os.environ["APPDATA"], "Cemu", "log.txt")
+        logpath = findlog()
         with open(logpath, errors="ignore") as f:
              lpopt = f.read()
              matches = re.findall(pattern, lpopt)

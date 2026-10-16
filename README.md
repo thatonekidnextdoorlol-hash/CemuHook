@@ -10,7 +10,7 @@ CemuTap is a free and open source alternative to Cheat Engine's memory scanner, 
 - Export and Save found addresses.
 
 ## Requirements
-- Windows (Temporarily)
+- Windows or Linux
 - [Cemu](https://cemu.info/), with a game running.
 
 ## Usage
@@ -42,7 +42,6 @@ Steps:
 ```
 
 ## Limitations
-- Windows only (temporarily)
 - Only scans MEM2 (0x10000000 to 0x50000000)
 
 A Tool By GABEWARE
