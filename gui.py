@@ -1,4 +1,5 @@
 import tkinter as tk
+import sv_ttk
 from tkinter import ttk
 from tkinter import filedialog
 from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate
@@ -12,17 +13,21 @@ buttonstate = "!disabled"
 root = tk.Tk()
 root.title("CemuTap")
 root.geometry("800x400")
-
+sv_ttk.set_theme("dark")
+toptab=ttk.Notebook(root)
+toptab.pack(fill="both",expand=True)
+scantab=ttk.Frame(toptab)
+toptab.add(scantab,text="Scan")
 icon = tk.PhotoImage(file=os.path.join(os.path.dirname(__file__), "GABEWARE.png"))
 root.iconphoto(False,icon)
 
-valuelabel = ttk.Label(root,text="Value:")
+valuelabel = ttk.Label(scantab,text="Value:")
 valuelabel.grid(row=0, column=0, padx=8, pady=8)
 
-valuebox = ttk.Entry(root)
+valuebox = ttk.Entry(scantab)
 valuebox.grid(row=0, column=1, padx=8, pady=8)
 
-size = ttk.Combobox(root, values=["1","2","4"], state="readonly", width=5)
+size = ttk.Combobox(scantab, values=["1","2","4"], state="readonly", width=5)
 size.grid(row=1, column=1, padx=8, pady=8)
 size.set("2")
 
@@ -67,7 +72,7 @@ def progress2(checked,total):
     scanstatus.config(text=f"Scanned {checked} of {total} Addresses")
     root.update()
 
-primaryscanbutton = ttk.Button(root, text="New Scan", command=scana)
+primaryscanbutton = ttk.Button(scantab, text="New Scan", command=scana)
 primaryscanbutton.grid(row=2,column=0,padx=8,pady=8)
 
 def scanb():
@@ -102,16 +107,16 @@ def cleartableevent():
     showmatches()
     scanstatus.config(text=f"Address Table Cleared.")
 
-bytesizelabel = ttk.Label(root, text="Byte Size To Query: ")
+bytesizelabel = ttk.Label(scantab, text="Byte Size To Query: ")
 bytesizelabel.grid(row=1, column=0, padx=8, pady=8)
 
-nextscanbutton = ttk.Button(root, text="Next Scan", command=scanb)
+nextscanbutton = ttk.Button(scantab, text="Next Scan", command=scanb)
 nextscanbutton.grid(row=3,column=0,padx=8,pady=8)
 
-results = tk.Listbox(root, width=40, height=12)
+results = tk.Listbox(scantab, width=40, height=12, bg="#2c2c2c",fg="#ffffff",borderwidth=0,highlightthickness=1,highlightbackground="#3a3a3a")
 results.grid(row=0,column=2,rowspan=5,padx=8,pady=8)
 
-scanstatus = ttk.Label(root, text="Ready")
+scanstatus = ttk.Label(scantab, text="Ready")
 scanstatus.grid(row=4,column=0,columnspan=2,padx=8,pady=8)
 
 def togglebuttons(override):
@@ -152,11 +157,11 @@ def importbuttonevent():
         scanstatus.config(text="!!! Could not read import. Are you sure this is a CemuTap Scan File?")
 
 
-exportbutton = ttk.Button(root,text="Export Scan", command=exportbuttonevent)
+exportbutton = ttk.Button(scantab,text="Export Scan", command=exportbuttonevent)
 exportbutton.grid(row=5,column=0,padx=8,pady=8)
-importbutton = ttk.Button(root,text="Import Scan", command=importbuttonevent)
+importbutton = ttk.Button(scantab,text="Import Scan", command=importbuttonevent)
 importbutton.grid(row=5,column=1,padx=8,pady=8)
-resettable = ttk.Button(root, text="Clear Address Table", command=cleartableevent)
+resettable = ttk.Button(scantab, text="Clear Address Table", command=cleartableevent)
 resettable.grid(row=5,column=2,padx=8,pady=8)
 
 def refloop():
