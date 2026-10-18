@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 
 found = []
+pinnedtabs = {}
 scansize = 2
 buttonstate = "!disabled"
 
@@ -225,11 +226,11 @@ def pluginselectevent(event):
     info,mod=loaded[selection[0]]
     for child in pluginpanel.winfo_children():
         child.destroy() #remove any previous panel
-    if not hasattr(module,"buildui"):
+    if not hasattr(mod,"buildui"):
         ttk.Label(pluginpanel,text=f"{info['name']} has no readable interface.").pack(padx=8,pady=8)
         return
     try:
-        module.buildui(pluginpanel)
+        mod.buildui(pluginpanel)
     except Exception as exc:
         ttk.Label(pluginpanel,text=f"{info['name']} UI build failed.").pack(padx=8,pady=8)
 pluginlist.bind("<<ListboxSelect>>",pluginselectevent)
@@ -261,6 +262,46 @@ def pluginadd():
 addpluginbutton=ttk.Button(pluginstab,text="Add Plugin", command=pluginadd)
 addpluginbutton.grid(row=1,sticky="ew",column=0,pady=8,padx=8)
 
+def pluginid(info):
+    return os.path.basename(info["folder"])
+
+def pinplugintab(info,module):
+    frame=ttk.Frame(toptab)
+    toptab.insert(toptab.index(pluginstab), frame, text=info["name"])
+    pinnedtabs[pluginid(info)] = frame
+
+    if hasattr(module,"buildui"):
+        try:
+            module.buildui(frame)
+        except Exception as exc:
+            ttk.Label(frame,text=f"UI Build Failed for reason: {exc}").pack(padx=8,pady=8)
+
+def unpin(info):
+    frame=pinnedtabs.pop(pluginid(info))
+    toptab.forget(frame)
+    frame.destroy() 
+
+def onpin():
+    selection=pluginlist.curselection()#what is currently has selected on the plugin list
+    if not selection:
+        messagebox.showinfo("Pin", "Please select a plugin before attempting to pin.")
+        return
+    info,module =loaded[selection[0]]
+    pid=pluginid(info)
+    if pid in pinnedtabs:
+        unpin(info)
+        settings["pinned"].remove(pid)
+    else:
+        if len(pinnedtabs)>=3:
+            messagebox.showwarning("Pin", "You may only have at most 3 pinned plugins. Please unpin a plugin before attempting to pin another.")
+            return
+        pinplugintab(info,module)
+        settings["pinned"].append(pid)
+    savesettings(settings)
+
+pinpluginbutton=ttk.Button(pluginstab,text="Pin/Unpin Plugin",command=onpin)
+pinpluginbutton.grid(row=2,pady=8,padx=8,sticky="ew",column=0)
+
 try:
     backend = backendcreate()
     base = findbase()
@@ -282,6 +323,15 @@ except Exception as e:
 
 for info,module in loaded:
     pluginlist.insert("end",f"{info['name']} v{info['version']} by {info['author']}")
+
+if api is not None: #remove any plugins from the pinned tabs if they were deleted before cemutap ran again
+    loadedids=[pluginid(info) for info, module in loaded]
+    settings["pinned"] = [pid for pid in settings["pinned"] if pid in loadedids]
+    savesettings(settings)
+
+for info,module in loaded:
+    if pluginid(info) in settings["pinned"] and len(pinnedtabs) < 3:
+        pinplugintab(info,module)
 
 refloop()
 root.mainloop()
