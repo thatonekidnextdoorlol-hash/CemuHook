@@ -8,17 +8,20 @@ class WindowsBackend:
     def __init__(self):
         import pymem
         self.pm = pymem.Pymem("cemu.exe")
-
     def read(self, address, size):
         return self.pm.read_bytes(address, size)
+    def write(self,address,data):
+        self.pm.write_bytes(address,data,len(data))
 
 class LinuxBackend:
     def __init__(self,pid):
-        self.f = open(f"/proc/{pid}/mem", "rb")
+        self.f = open(f"/proc/{pid}/mem", "r+b", buffering=0)
     def read(self,address,size):
         self.f.seek(address)
         return self.f.read(size)
-    import psutil
+    def write(self,address,data):
+        self.f.seek(address)
+        return self.f.write(data)
 
 def cemupid():
     for process in psutil.process_iter(["name"]):
@@ -44,7 +47,30 @@ def findlog():
         if os.path.exists(fpath):
             return fpath
     return None
-    
+
+def datadir():
+    if sys.platform=="win32":
+        dirpath=os.path.join(os.envorn["APPDATA"],"CemuTap")
+    else:
+        dirpath=os.path.expanduser("~/.local/share/CemuTap")
+    os.makedirs(dirpath,exist_ok=True)
+    return dirpath
+
+def savesettings(settings):
+        with open(os.path.join(datadir(), "settings.json"),"w") as folder:
+            json.dump(settings,folder)
+
+defaults={"theme":"dark","pinned":[]}
+
+def loadcts():
+    settings=dict(defaults)
+    try:
+        with open(os.path.join(datadir(), "settings.json")) as folder:
+            settings.update(json.load(folder))
+    except Exception:
+        pass
+    return settings
+
 def findbase():
         pattern = r"base: 0x([0-9a-fA-F]+)"
         logpath = findlog()
@@ -57,6 +83,9 @@ def readunit(backend, base, guest, size):
     hostaddress = base + guest
     habo =  backend.read(hostaddress, size)
     return int.from_bytes(habo, "big")
+
+def writeu(backend,base,guest,size,value):
+    backend.write(base+guest,value.to_bytes(size,"big"))
 
 def primaryscan(backend, base, value, size, progress = None):
      target = value.to_bytes(size, "big")
