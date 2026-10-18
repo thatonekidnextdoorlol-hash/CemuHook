@@ -14,10 +14,16 @@ root = tk.Tk()
 root.title("CemuTap")
 root.geometry("800x400")
 sv_ttk.set_theme("dark")
+
 toptab=ttk.Notebook(root)
 toptab.pack(fill="both",expand=True)
+
 scantab=ttk.Frame(toptab)
 toptab.add(scantab,text="Scan")
+
+settingstab=ttk.Frame(toptab)
+toptab.add(settingstab,text="Settings")
+
 icon = tk.PhotoImage(file=os.path.join(os.path.dirname(__file__), "GABEWARE.png"))
 root.iconphoto(False,icon)
 
@@ -116,6 +122,15 @@ nextscanbutton.grid(row=3,column=0,padx=8,pady=8)
 results = tk.Listbox(scantab, width=40, height=12, bg="#2c2c2c",fg="#ffffff",borderwidth=0,highlightthickness=1,highlightbackground="#3a3a3a")
 results.grid(row=0,column=2,rowspan=5,padx=8,pady=8)
 
+def theme():
+    sv_ttk.toggle_theme()
+    if sv_ttk.get_theme()=="dark":
+        results.config(bg="#2c2c2c",fg="#ffffff",highlightbackground="#3a3a3a")
+    else:
+        results.config(bg="#ffffff",fg="#000000", highlightbackground="#cccccc")
+
+themebutton = ttk.Button(settingstab, text="Toggle Light/Dark Theme",command=theme)
+themebutton.grid(row=0,column=0,pady=8,padx=8)
 scanstatus = ttk.Label(scantab, text="Ready")
 scanstatus.grid(row=4,column=0,columnspan=2,padx=8,pady=8)
 
