@@ -1,8 +1,10 @@
 import tkinter as tk
 import sv_ttk
+import json
 from tkinter import ttk
 from tkinter import filedialog
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings
+from tkinter import messagebox
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall
 settings = loadcts()
 import os
 from datetime import datetime
@@ -22,6 +24,9 @@ toptab.pack(fill="both",expand=True)
 scantab=ttk.Frame(toptab)
 toptab.add(scantab,text="Scan")
 
+pluginstab=ttk.Frame(toptab)
+toptab.add(pluginstab,text="Plugins")
+
 settingstab=ttk.Frame(toptab)
 toptab.add(settingstab,text="Settings")
 
@@ -37,6 +42,16 @@ valuebox.grid(row=0, column=1, padx=8, pady=8)
 size = ttk.Combobox(scantab, values=["1","2","4"], state="readonly", width=5)
 size.grid(row=1, column=1, padx=8, pady=8)
 size.set("2")
+
+pluginlist=tk.Listbox(pluginstab,width=25,borderwidth=0,highlightthickness=1)
+pluginlist.grid(row=0,sticky="ns",column=0,pady=8,padx=8)
+
+pluginpanel=ttk.Frame(pluginstab)
+pluginpanel.grid(row=0,sticky="nsew",column=1,pady=8,padx=8)
+
+pluginstab.rowconfigure(0,weight=1)
+pluginstab.columnconfigure(1,weight=1)
+
 
 def showmatches():
     results.delete(0, "end")
@@ -66,9 +81,15 @@ def scana():
         found = primaryscan(backend, base, value, bytesize, progress=totalprogress)
         scansize=bytesize
         scanstatus.config(text=f"{len(found)} Address Matches Found")
-        showmatches() 
+        showmatches()
+        for cb in api.scancallbacks:
+            try:
+                cb(found)
+            except Exception as exc:
+                print(f"A plugin's scan callback failed for reason: {exc}")
     finally:
         togglebuttons("!disabled")
+
     
 
 def totalprogress(scanned):
@@ -95,6 +116,11 @@ def scanb():
                 found = nextscan(backend,base,found,value,scansize, progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
                 showmatches()
+                for cb in api.scancallbacks:
+                    try:
+                        cb(found)
+                    except Exception as exc:
+                        print(f"A plugin's scan callback failed for reason: {exc}")
             except ValueError:
                 scanstatus.config(text="Value must be a whole number and include only numbers.")
                 return
@@ -126,8 +152,10 @@ results.grid(row=0,column=2,rowspan=5,padx=8,pady=8)
 def addrtablecolors():
     if sv_ttk.get_theme()=="dark":
         results.config(bg="#2c2c2c",fg="#ffffff",highlightbackground="#3a3a3a")
+        pluginlist.config(bg="#2c2c2c",fg="#ffffff",highlightbackground="#3a3a3a")
     else:
         results.config(bg="#ffffff",fg="#000000", highlightbackground="#cccccc")
+        pluginlist.config(bg="#ffffff",fg="#000000", highlightbackground="#cccccc")
 addrtablecolors()
 def theme():
     sv_ttk.toggle_theme()
@@ -190,14 +218,70 @@ def refloop():
         showmatches()
     root.after(1000,refloop)
 
+def pluginselectevent(event):
+    selection=pluginlist.curselection()
+    if not selection:
+        return
+    info,mod=loaded[selection[0]]
+    for child in pluginpanel.winfo_children():
+        child.destroy() #remove any previous panel
+    if not hasattr(module,"buildui"):
+        ttk.Label(pluginpanel,text=f"{info['name']} has no readable interface.").pack(padx=8,pady=8)
+        return
+    try:
+        module.buildui(pluginpanel)
+    except Exception as exc:
+        ttk.Label(pluginpanel,text=f"{info['name']} UI build failed.").pack(padx=8,pady=8)
+pluginlist.bind("<<ListboxSelect>>",pluginselectevent)
+
+def pluginadd():
+    path=filedialog.askopenfilename(filetypes=[("CemuTap Plugin", "*.zip")])
+    if not path:
+        return
+    try:
+        folder=plugininstall(path)
+    except Exception as exc:
+        messagebox.showerror("Add Plugin", f"Couldn't install plugin for reason: {exc}")
+        return
+    if api is None:
+        messagebox.showinfo("Add Plugin", "Plugin Installed. It will load on CemuTap's next attachment to Cemu.")
+        return
+    try:
+        with open(os.path.join(folder,"plugin.json")) as file:
+            info = json.load(file)
+        info["folder"]=folder
+        module = executeplugin(info)
+        module.setup(api)
+    except Exception as exc:
+        messagebox.showerror("Add Plugin", f"Plugin installed, although it failed to load for reason: {exc}")
+        return
+    loaded.append((info,module))
+    pluginlist.insert("end",f"{info['name']} v{info['version']} by {info['author']}")
+
+addpluginbutton=ttk.Button(pluginstab,text="Add Plugin", command=pluginadd)
+addpluginbutton.grid(row=1,sticky="ew",column=0,pady=8,padx=8)
 
 try:
     backend = backendcreate()
     base = findbase()
     scanstatus.config(text=f"Attached to Cemu: {hex(base)}")
+    api=PluginAPI(backend,base)
+    loaded=[]
+    for info in pluginslistbuild():
+        try:
+            module=executeplugin(info)
+            module.setup(api)
+            loaded.append((info,module))
+        except Exception as exc:
+            print(f"Plugin {info['name']} failed to load for reason: {exc}")
 except Exception as e:
     backend = None
+    api=None
+    loaded=[]
     scanstatus.config(text=f"!!! Cemu Attach Failed: {e}")
+
+for info,module in loaded:
+    pluginlist.insert("end",f"{info['name']} v{info['version']} by {info['author']}")
 
 refloop()
 root.mainloop()

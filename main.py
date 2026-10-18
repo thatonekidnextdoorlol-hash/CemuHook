@@ -3,6 +3,10 @@ import re
 import os
 import json
 import sys
+import importlib.util
+import shutil
+import zipfile
+import tempfile
 
 class WindowsBackend:
     def __init__(self):
@@ -22,6 +26,18 @@ class LinuxBackend:
     def write(self,address,data):
         self.f.seek(address)
         return self.f.write(data)
+
+class PluginAPI:
+    def __init__(self,backend,base):
+        self.backend=backend
+        self.base=base
+        self.scancallbacks=[]
+    def read(self,guest, size):
+        return readunit(self.backend,self.base,guest,size)
+    def write(self,guest,size,value ):
+        writeu(self.backend,self.base,guest,size,value)
+    def onscan(self,function):
+        self.scancallbacks.append(function)
 
 def cemupid():
     for process in psutil.process_iter(["name"]):
@@ -70,6 +86,57 @@ def loadcts():
     except Exception:
         pass
     return settings
+
+def plugindir():
+    path=os.path.join(datadir(),"plugins")
+    os.makedirs(path,exist_ok=True)
+    return path
+
+def pluginslistbuild():
+    plugins=[]
+    for folder in os.listdir(plugindir()):
+        path=os.path.join(plugindir(),folder)
+        try:
+            with open(os.path.join(path,"plugin.json")) as fd:
+                info=json.load(fd)
+        except Exception:
+            continue
+        info["folder"]=path
+        plugins.append(info)
+    return plugins
+
+def pluginroot(folder):
+    if os.path.exists(os.path.join(folder,"plugin.json")):
+        return folder
+    for name in os.listdir(folder):
+        inner = os.path.join(folder,name)
+        if os.path.exists(os.path.join(inner,"plugin.json")):
+            return inner
+    return None
+
+def plugininstall(path):
+    with tempfile.TemporaryDirectory() as temp:
+        if zipfile.is_zipfile(path):
+            zipfile.ZipFile(path).extractall(temp)
+            source=pluginroot(temp)
+        else:
+            source=pluginroot(path)
+        if source is None:
+            raise ValueError("No plugin.json found in selected archive.")
+        destination=os.path.join(plugindir(), os.path.basename(source.rstrip("/\\")))
+        if os.path.exists(destination):
+            raise ValueError("A CemuTap plugin already exists with this foldername.")
+        shutil.copytree(source,destination)
+        return destination
+
+
+def executeplugin(info):
+    path=os.path.join(info["folder"],info["entry"])
+    spec=importlib.util.spec_from_file_location(info["name"],path)
+    module=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return module
 
 def findbase():
         pattern = r"base: 0x([0-9a-fA-F]+)"
