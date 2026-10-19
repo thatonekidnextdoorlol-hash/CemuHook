@@ -18,6 +18,7 @@ CemuTap is a free and open source alternative to Cheat Engine's memory scanner, 
 2. Set the "Byte Size To Query" value to the amount of bytes the game uses for that value (1, 2, or 4).
 3. Click the "New Scan" button to start a search for said value in Cemu's memory.
 4. After the first scan is completed, modify your value in-game (ex. Losing a life and lives dropping to 1109), then change Value to the new value. (ex. 1109 Lives -> 1109)
+   
 A simpler, mini tutorial on how to use CemuTap can be found here: https://www.youtube.com/watch?v=_IzkyIbeI9A
 
 ## CemuTap Scan Files (.ctms)
