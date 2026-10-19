@@ -1,12 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_submodules
+
+datas = [('GABEWARE.png', '.')]
+hiddenimports = ['struct', 'uuid', 'socket']
+datas += collect_data_files('sv_ttk')
+hiddenimports += collect_submodules('asyncio')
 
 
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('GABEWARE.png', '.')],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,5 +42,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['GABEWARE.png'],
 )
