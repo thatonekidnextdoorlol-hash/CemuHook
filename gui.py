@@ -4,13 +4,14 @@ import json
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu
 settings = loadcts()
 import os
 from datetime import datetime
 
 found = []
 pinnedtabs = {}
+frozen=None
 scansize = 2
 buttonstate = "!disabled"
 
@@ -24,6 +25,9 @@ toptab.pack(fill="both",expand=True)
 
 scantab=ttk.Frame(toptab)
 toptab.add(scantab,text="Scan")
+
+liveedittab=ttk.Frame(toptab)
+toptab.add(liveedittab, text="Live Address Editor")
 
 pluginstab=ttk.Frame(toptab)
 toptab.add(pluginstab,text="Plugins")
@@ -206,6 +210,32 @@ def importbuttonevent():
     except Exception:
         scanstatus.config(text="!!! Could not read import. Are you sure this is a CemuTap Scan File?")
 
+#row0
+ttk.Label(liveedittab,text="Address:").grid(row=0,column=0,pady=8,padx=8)
+editoraddr=ttk.Entry(liveedittab)
+editoraddr.grid(row=0,column=1,padx=8,pady=8)
+#row1
+sizelabel=ttk.Label(liveedittab,text="Byte Size To Modify:")
+sizelabel.grid(row=1, column=0, padx=8, pady=8)
+editorsize=ttk.Combobox(liveedittab, values=["1","2","4"], state="readonly", width=5)
+editorsize.grid(row=1, column=1, padx=8, pady=8)
+editorsize.set("2")
+#row2
+currentvaluelabel=ttk.Label(liveedittab,text="Current Value:")
+currentvaluelabel.grid(row=2,column=0,pady=8,padx=8)
+currentedit=ttk.Label(liveedittab,text="?")
+currentedit.grid(row=2,column=1,pady=8,padx=8)
+#row3
+nvlabel=ttk.Label(liveedittab,text="New Value:").grid(row=3,column=0,padx=8,pady=8)
+newvalue=ttk.Entry(liveedittab)
+newvalue.grid(row=3,column=1,padx=8,pady=8)
+#row4
+writebutton=ttk.Button(liveedittab,text="Write")
+writebutton.grid(column=0,row=4,padx=8,pady=8)
+freezebutton=ttk.Button(liveedittab,text="Freeze Value")
+freezebutton.grid(column=1,row=4,padx=8,pady=8)
+editorstatus=ttk.Label(liveedittab,text="Ready.")
+editorstatus.grid(column=1,row=5,padx=8,pady=8)
 
 exportbutton = ttk.Button(scantab,text="Export Scan", command=exportbuttonevent)
 exportbutton.grid(row=5,column=0,padx=8,pady=8)
@@ -214,10 +244,72 @@ importbutton.grid(row=5,column=1,padx=8,pady=8)
 resettable = ttk.Button(scantab, text="Clear Address Table", command=cleartableevent)
 resettable.grid(row=5,column=2,padx=8,pady=8)
 
+def write():
+    if backend is None:
+        editorstatus.config(text="CemuTap is not currently attached to Cemu. Is Cemu even open?")
+        return
+    try:
+        address=int(editoraddr.get(),16)
+        editorbytesize=int(editorsize.get())
+        value=int(newvalue.get())
+    except ValueError:
+        editorstatus.config(text="Please enter a hex address or a whole number.")
+        return
+    if not 0 <= value < 256 ** editorbytesize:
+        editorstatus.config(text=f"New Value must be between 0 to {256**editorbytesize-1}.")
+        return
+    try:
+        writeu(backend,base,address,editorbytesize,value)
+        editorstatus.config(text=f"Wrote {value} to address {hex(address)}.")
+    except Exception as exc:
+        editorstatus.config(text=f"Write failed for reason: {exc}")
+
+writebutton.config(command=write)
+
 def refloop():
     if 0<len(found)<=12:
         showmatches()
     root.after(1000,refloop)
+    try:
+        address=int(editoraddr.get(),16)
+        editorbytesize=int(editorsize.get())
+        currentedit.config(text=str(readunit(backend,base,address,editorbytesize)))
+    except Exception:
+        currentedit.config(text="?")
+
+def togglefreezevalue():
+    global frozen
+    if frozen is not None:
+        frozen = None
+        freezebutton.config(text="Freeze Value")
+        editorstatus.config(text="Value Unfrozen.")
+        return
+    if backend is None:
+        editorstatus.config(text="CemuTap is not currently attached to Cemu. Is Cemu even open?")
+        return
+    try:
+        address=int(editoraddr.get(),16)
+        editorbytesize=int(editorsize.get())
+        value=int(newvalue.get())
+    except ValueError:
+        editorstatus.config(text="Please enter a hex address and a whole number to freeze.")
+        return
+    if not 0<=value<256**editorbytesize:
+        editorstatus.config(text=f"Value must be between 0 to {256**editorbytesize-1}.")
+        return
+    frozen=(address,editorbytesize,value)
+    freezebutton.config(text="Unfreeze")
+    editorstatus.config(text=f"Froze address {hex(address)} at {value}.")
+
+freezebutton.config(command=togglefreezevalue)
+
+def loopfreeze():
+    if frozen is not None:
+        try:
+            writeu(backend,base,*frozen)#unpack frozen also
+        except Exception:
+            pass
+    root.after(100,loopfreeze)
 
 def pluginselectevent(event):
     selection=pluginlist.curselection()
@@ -334,4 +426,5 @@ for info,module in loaded:
         pinplugintab(info,module)
 
 refloop()
+loopfreeze()
 root.mainloop()
