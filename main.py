@@ -66,7 +66,7 @@ def findlog():
 
 def datadir():
     if sys.platform=="win32":
-        dirpath=os.path.join(os.envorn["APPDATA"],"CemuTap")
+        dirpath=os.path.join(os.enviorn["APPDATA"],"CemuTap")
     else:
         dirpath=os.path.expanduser("~/.local/share/CemuTap")
     os.makedirs(dirpath,exist_ok=True)
@@ -169,7 +169,7 @@ def primaryscan(backend, base, value, size, progress = None):
              position = chunk.find(target, position+1)
          if progress is not None:
             progress(guest-0x10000000 + 0x100000)
-     return found
+     return found, [value]*len(found)
 
 def nextscan(backend, base, found, value, size, progress = None):
      target=value.to_bytes(size,"big")
@@ -217,7 +217,7 @@ if __name__ == "__main__": # just to make sure the terminal doesn't open :P
 
 
 
-     found = primaryscan(backend, base, value, searchsize)
+     found,previous = primaryscan(backend, base, value, searchsize)
 
      print(len(found))
      print([hex(a) for a in found[:5]])
