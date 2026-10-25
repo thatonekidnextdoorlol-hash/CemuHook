@@ -33,10 +33,10 @@ class PluginAPI:
         self.backend=backend
         self.base=base
         self.scancallbacks=[]
-    def read(self,guest, size):
-        return readunit(self.backend,self.base,guest,size)
-    def write(self,guest,size,value ):
-        writeu(self.backend,self.base,guest,size,value)
+    def read(self,guest, size, floattoggle=False):
+        return readvalue(self.backend,self.base,guest,size,floattoggle)
+    def write(self,guest,size,value,floattoggle=False):
+        writevalue(self.backend,self.base,guest,size,value,floattoggle)
     def onscan(self,function):
         self.scancallbacks.append(function)
 

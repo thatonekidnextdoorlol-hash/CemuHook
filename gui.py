@@ -153,7 +153,11 @@ def scanb():
                     value=0
                 if snapshotpath is not None:
                     found,previous=snapshotscan(backend,base,snapshotpath,scansize,mode,value,scanfloat,progress=totalprogress)
-                    snapshotpath = None
+                    try:
+                        os.remove(snapshotpath)
+                    except OSError:
+                        pass
+                    snapshotpath=None
                 else:
                     found,previous= nextscan(backend,base,found,previous,value,scansize,mode=mode,floattoggle=scanfloat,progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
@@ -180,6 +184,11 @@ def cleartableevent():
         return
     found = []
     previous=[]
+    if snapshotpath is not None:
+        try:
+            os.remove(snapshotpath)
+        except OSError:
+            pass
     snapshotpath = None
     showmatches()
     scanstatus.config(text=f"Address Table Cleared.")
