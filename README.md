@@ -27,7 +27,7 @@ A simpler, mini tutorial on how to scan using CemuTap can be found here: https:/
 You can export found addresses to save for later usage via the "Export Scan" button. Exported addresses are saved as a ctms (CemuTap Scan File) file, including the date and time of your export as its name. If you ever want to recover a saved export, you can use the "Import Scan" button, which asks for a .ctms file. 
 
 # Plugins
-Documentation and information about using and creating CemuTap plugins can be found in [PLUGINS.md](plugins.md).
+Documentation and information about using and creating CemuTap plugins can be found in [PLUGINS.md](PLUGINS.md).
 
 ## Running from source
 Requirements:
