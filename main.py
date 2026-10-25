@@ -157,6 +157,10 @@ def readvalue(backend,base,guest,size,floattoggle=False):
     dtype =">f4" if floattoggle else f">u{size}"
     return np.frombuffer(raw,dtype=dtype)[0].item()
 
+def writevalue(backend,base,guest,size,value,floattoggle=False):
+    dtype=">f4"if floattoggle else f">u{size}"
+    backend.write(base+guest,np.array([value], dtype=dtype).tobytes())
+
 def writeu(backend,base,guest,size,value):
     backend.write(base+guest,value.to_bytes(size,"big"))
 
@@ -226,7 +230,7 @@ def nextscan(backend, base, found, previous, value, size, mode="exact",floattogg
      return survivors,survivingvalues
 
 def export(path, found, size,floattoggle=False):
-    data = {"version": 1, "size": size, "float": floattoggle, "addresses": found}
+    data = {"version": 2, "size": size, "float": floattoggle, "addresses": found} #CHANGE WHENEVER UPDATED !!!
     with open(path,"w") as f:
         json.dump(data,f)
 

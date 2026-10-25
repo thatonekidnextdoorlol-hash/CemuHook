@@ -4,7 +4,7 @@ import json
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue
 settings = loadcts()
 import os
 from datetime import datetime
@@ -12,8 +12,10 @@ from datetime import datetime
 found = []
 previous =[]
 pinnedtabs = {}
+backend = None
 frozen=None
 scanfloat = False
+base = 0
 scansize = 2
 buttonstate = "!disabled"
 
@@ -239,7 +241,7 @@ editoraddr.grid(row=0,column=1,padx=8,pady=8)
 #row1
 sizelabel=ttk.Label(liveedittab,text="Byte Size To Modify:")
 sizelabel.grid(row=1, column=0, padx=8, pady=8)
-editorsize=ttk.Combobox(liveedittab, values=["1","2","4"], state="readonly", width=5)
+editorsize=ttk.Combobox(liveedittab, values=["1","2","4","Float"], state="readonly", width=5)
 editorsize.grid(row=1, column=1, padx=8, pady=8)
 editorsize.set("2")
 #row2
@@ -266,22 +268,27 @@ importbutton.grid(row=5,column=1,padx=8,pady=8)
 resettable = ttk.Button(scantab, text="Clear Address Table", command=cleartableevent)
 resettable.grid(row=5,column=2,padx=8,pady=8)
 
+def editortype():
+    text=editorsize.get()
+    floattoggle=text=="Float"
+    return (4 if floattoggle else int(text)), floattoggle #returns 4 is floattoggle is valid
+
 def write():
     if backend is None:
         editorstatus.config(text="CemuTap is not currently attached to Cemu. Is Cemu even open?")
         return
     try:
         address=int(editoraddr.get(),16)
-        editorbytesize=int(editorsize.get())
-        value=int(newvalue.get())
+        editorbytesize, isfloat =editortype()
+        value=float(newvalue.get()) if isfloat else int(newvalue.get())
     except ValueError:
-        editorstatus.config(text="Please enter a hex address or a whole number.")
+        editorstatus.config(text="Please enter a hex address and a valid number.")
         return
-    if not 0 <= value < 256 ** editorbytesize:
+    if not isfloat and not 0 <= value < 256 ** editorbytesize:
         editorstatus.config(text=f"New Value must be between 0 to {256**editorbytesize-1}.")
         return
     try:
-        writeu(backend,base,address,editorbytesize,value)
+        writevalue(backend,base,address,editorbytesize,value,isfloat)
         editorstatus.config(text=f"Wrote {value} to address {hex(address)}.")
     except Exception as exc:
         editorstatus.config(text=f"Write failed for reason: {exc}")
@@ -294,8 +301,9 @@ def refloop():
     root.after(1000,refloop)
     try:
         address=int(editoraddr.get(),16)
-        editorbytesize=int(editorsize.get())
-        currentedit.config(text=str(readunit(backend,base,address,editorbytesize)))
+        editorbytesize,isfloat=editortype()
+        value=readvalue(backend,base,address,editorbytesize,isfloat)
+        currentedit.config(text=str(round(value,4) if isfloat else value))
     except Exception:
         currentedit.config(text="?")
 
@@ -311,15 +319,15 @@ def togglefreezevalue():
         return
     try:
         address=int(editoraddr.get(),16)
-        editorbytesize=int(editorsize.get())
-        value=int(newvalue.get())
+        editorbytesize, isfloat =editortype()
+        value=float(newvalue.get()) if isfloat else int(newvalue.get())
     except ValueError:
-        editorstatus.config(text="Please enter a hex address and a whole number to freeze.")
+        editorstatus.config(text="Please enter a hex address and a valid number.")
         return
-    if not 0<=value<256**editorbytesize:
-        editorstatus.config(text=f"Value must be between 0 to {256**editorbytesize-1}.")
+    if not isfloat and not 0 <= value < 256 ** editorbytesize:
+        editorstatus.config(text=f"New Value must be between 0 to {256**editorbytesize-1}.")
         return
-    frozen=(address,editorbytesize,value)
+    frozen=(address,editorbytesize,value,isfloat)
     freezebutton.config(text="Unfreeze")
     editorstatus.config(text=f"Froze address {hex(address)} at {value}.")
 
@@ -328,7 +336,7 @@ freezebutton.config(command=togglefreezevalue)
 def loopfreeze():
     if frozen is not None:
         try:
-            writeu(backend,base,*frozen)#unpack frozen also
+            writevalue(backend,base,*frozen)#unpack frozen also
         except Exception:
             pass
     root.after(100,loopfreeze)
