@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 
 found = []
+previous =[]
 pinnedtabs = {}
 frozen=None
 scansize = 2
@@ -68,7 +69,7 @@ def showmatches():
         results.insert("end", f"{hex(addr)} ({val})")
 
 def scana():
-    global found, scansize
+    global found, scansize, previous
     if backend is None:
         scanstatus.config(text="Not attached to Cemu.")
         return 
@@ -83,7 +84,7 @@ def scana():
         return
     togglebuttons("disabled")
     try:
-        found = primaryscan(backend, base, value, bytesize, progress=totalprogress)
+        found,previous = primaryscan(backend, base, value, bytesize, progress=totalprogress)
         scansize=bytesize
         scanstatus.config(text=f"{len(found)} Address Matches Found")
         showmatches()

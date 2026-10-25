@@ -66,7 +66,7 @@ def findlog():
 
 def datadir():
     if sys.platform=="win32":
-        dirpath=os.path.join(os.enviorn["APPDATA"],"CemuTap")
+        dirpath=os.path.join(os.environ["APPDATA"],"CemuTap")
     else:
         dirpath=os.path.expanduser("~/.local/share/CemuTap")
     os.makedirs(dirpath,exist_ok=True)
