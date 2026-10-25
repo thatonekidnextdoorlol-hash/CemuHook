@@ -4,15 +4,16 @@ import json
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue, snapshot, snapshotscan
 settings = loadcts()
 import os
 from datetime import datetime
-
+# i pray for the sanity of whoever is auditing this scrambled mess... (psst, you'll need ctrl+F a LOT.)
 found = []
 previous =[]
 pinnedtabs = {}
 backend = None
+snapshotpath=None
 frozen=None
 scanfloat = False
 base = 0
@@ -74,10 +75,25 @@ def showmatches():
         results.insert("end", f"{hex(addr)} ({val})")
 
 def scana():
-    global found, scansize, previous, scanfloat
+    global found, scansize, previous, scanfloat, snapshotpath
     if backend is None:
         scanstatus.config(text="Not attached to Cemu.")
         return 
+    if unknownvalue.get():
+        sizetext=size.get()
+        isfloat=sizetext=="Float"
+        togglebuttons("disabled")
+        try:
+            snapshotpath=snapshot(backend,base,progress=totalprogress)
+            found=[]
+            previous=[]
+            scansize=4 if isfloat else int(sizetext)
+            scanfloat=isfloat
+            showmatches()
+            scanstatus.config(text="Snapshot taken! Change the value in game, then use Next Scan.")
+        finally:
+            togglebuttons("!disabled")
+        return
     sizetext=size.get()
     floattoggle= sizetext=="Float"
     try:
@@ -117,10 +133,14 @@ def progress2(checked,total):
 primaryscanbutton = ttk.Button(scantab, text="New Scan", command=scana)
 primaryscanbutton.grid(row=2,column=0,padx=8,pady=8)
 
+unknownvalue=tk.BooleanVar(value=False)
+unknownvaluecheckbox=ttk.Checkbutton(scantab,text="Unknown Initial Value",variable=unknownvalue)
+unknownvaluecheckbox.grid(row=2,column=1,padx=8,pady=8)
+
 def scanb():
-    global found,previous
+    global found,previous,snapshotpath
     if backend is not None:
-        if found:
+        if found or snapshotpath is not None:
             togglebuttons("disabled")
             try:
                 mode=scantype.get().lower()
@@ -131,7 +151,11 @@ def scanb():
                         return
                 else:
                     value=0
-                found, previous = nextscan(backend,base,found,previous,value,scansize,mode=mode,floattoggle=scanfloat,progress=progress2)
+                if snapshotpath is not None:
+                    found,previous=snapshotscan(backend,base,snapshotpath,scansize,mode,value,scanfloat,progress=totalprogress)
+                    snapshotpath = None
+                else:
+                    found,previous= nextscan(backend,base,found,previous,value,scansize,mode=mode,floattoggle=scanfloat,progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
                 showmatches()
                 for cb in api.scancallbacks:
@@ -151,11 +175,12 @@ def scanb():
         scanstatus.config(text="Not attached to Cemu.")
 
 def cleartableevent():
-    global found,previous
-    if found == []:
+    global found,previous,snapshotpath
+    if not found and snapshotpath is None:
         return
     found = []
     previous=[]
+    snapshotpath = None
     showmatches()
     scanstatus.config(text=f"Address Table Cleared.")
 

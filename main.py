@@ -8,7 +8,7 @@ import shutil
 import zipfile
 import tempfile
 import numpy as np
-
+# i pray for the sanity of whoever is auditing this scrambled mess... (psst, you'll need ctrl+F a LOT.)
 class WindowsBackend:
     def __init__(self):
         import pymem
@@ -185,6 +185,55 @@ def primaryscan(backend, base, value, size, floattoggle=False,progress = None):
             progress(guest-0x10000000 + 0x100000)
      return found, values
 
+def snapshot(backend,base,progress=None):
+    path=os.path.join(datadir(),"snapshot.bin")
+    with open(path,"wb") as file:
+        for guest in range(0x10000000, 0x50000000, 0x100000):
+            try:
+                chunk=backend.read(base+guest,0x100000)
+            except Exception:
+                chunk=bytes(0x100000)
+            file.write(chunk)
+            if progress is not None:
+                progress(guest-0x10000000+0x100000)
+    return path
+
+def snapshotscan(backend,base,path,size,mode,value=0,floattoggle=False,progress=None):
+    dtype=">f4" if floattoggle else f">u{size}"
+    found=[]
+    values=[]
+    with open(path,"rb") as file:
+        for n,guest in enumerate(range(0x10000000,0x50000000,0x100000)):
+            file.seek(n*0x100000)
+            oldchunk=file.read(0x100000)
+            try:
+                nowchunk=backend.read(base+guest,0x100000)
+            except Exception:
+                continue
+            now=np.frombuffer(nowchunk,dtype)
+            old=np.frombuffer(oldchunk,dtype=dtype)
+            hits=np.nonzero(comparearrays(mode,now,old,value,floattoggle))[0]
+            found.extend((guest+hits*size).tolist()) #peMdAs
+            values.extend(now[hits].tolist())
+            if progress is not None:
+                progress(guest-0x10000000+0x100000)
+        return found,values
+
+def comparearrays(mode,now,old,value,floattoggle=False):
+    if mode=="exact":
+        if floattoggle:
+            return np.abs(now-value)<0.01
+        return now==value
+    if mode=="increased":
+        return now>old
+    if mode=="decreased":
+        return now<old
+    if mode=="changed":
+        return now.view(f">u{now.itemsize}") != old.view(f">u{old.itemsize}")
+    if mode=="unchanged":
+        return now.view(f">u{now.itemsize}") == old.view(f">u{old.itemsize}")
+    return np.zeros(len(now),dtype=bool)
+
 def keep(mode,current,old,value,floattoggle=False):
     if mode=="exact":
         if floattoggle:
@@ -195,9 +244,9 @@ def keep(mode,current,old,value,floattoggle=False):
     if mode=="decreased":
         return current < old
     if mode== "changed":
-        return current != old
+        return not (current == old or (current != current and old != old))
     if mode=="unchanged":
-        return current == old
+        return current == old or (current != current and old != old)
     return False #if none pass ofc
 
 def nextscan(backend, base, found, previous, value, size, mode="exact",floattoggle=False,progress = None):
