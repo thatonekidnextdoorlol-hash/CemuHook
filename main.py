@@ -7,6 +7,7 @@ import importlib.util
 import shutil
 import zipfile
 import tempfile
+import numpy as np
 
 class WindowsBackend:
     def __init__(self):
@@ -151,28 +152,39 @@ def readunit(backend, base, guest, size):
     habo =  backend.read(hostaddress, size)
     return int.from_bytes(habo, "big")
 
+def readvalue(backend,base,guest,size,floattoggle=False):
+    raw=backend.read(base+guest,size)
+    dtype =">f4" if floattoggle else f">u{size}"
+    return np.frombuffer(raw,dtype=dtype)[0].item()
+
 def writeu(backend,base,guest,size,value):
     backend.write(base+guest,value.to_bytes(size,"big"))
 
-def primaryscan(backend, base, value, size, progress = None):
-     target = value.to_bytes(size, "big")
+def primaryscan(backend, base, value, size, floattoggle=False,progress = None):
+     dtype=">f4" if floattoggle else f">u{size}"
      found = []
+     values=[]
      
      for guest in range(0x10000000, 0x50000000, 0x100000):
          try:
              chunk = backend.read(base+guest,0x100000)
          except Exception:
              continue
-         position = chunk.find(target, 0)
-         while position != -1:
-             found.append(guest + position)
-             position = chunk.find(target, position+1)
+         arr=np.frombuffer(chunk,dtype=dtype)
+         if floattoggle:
+             hits=np.nonzero(np.abs(arr-value)<0.01)[0]
+         else:
+             hits=np.nonzero(arr==value)[0]
+         found.extend((guest + hits * size).tolist())
+         values.extend(arr[hits].tolist())
          if progress is not None:
             progress(guest-0x10000000 + 0x100000)
-     return found, [value]*len(found)
+     return found, values
 
-def keep(mode,current,old,value):
+def keep(mode,current,old,value,floattoggle=False):
     if mode=="exact":
+        if floattoggle:
+            return abs(current-value)<0.01
         return current==value
     if mode=="increased":
         return current> old
@@ -184,7 +196,8 @@ def keep(mode,current,old,value):
         return current == old
     return False #if none pass ofc
 
-def nextscan(backend, base, found, previous, value, size, mode="exact",progress = None):
+def nextscan(backend, base, found, previous, value, size, mode="exact",floattoggle=False,progress = None):
+     dtype=">f4" if floattoggle else f">u{size}"
      survivors = []
      survivingvalues=[]
      start=None
@@ -204,23 +217,23 @@ def nextscan(backend, base, found, previous, value, size, mode="exact",progress 
          if chunk is not None:
              raw=chunk[offset:offset+size]
              if len(raw)==size:
-                 current = int.from_bytes(raw, "big")
-                 if keep(mode,current,previous[i],value):
+                 current = np.frombuffer(raw,dtype=dtype)[0].item()
+                 if keep(mode,current,previous[i],value,floattoggle):
                      survivors.append(addr)
                      survivingvalues.append(current)
          if progress is not None and i%10000==0:
              progress(i,len(found))
      return survivors,survivingvalues
 
-def export(path, found, size):
-    data = {"version": 1, "size": size, "addresses": found}
+def export(path, found, size,floattoggle=False):
+    data = {"version": 1, "size": size, "float": floattoggle, "addresses": found}
     with open(path,"w") as f:
         json.dump(data,f)
 
 def importscan(path):
     with open(path) as f:
         data=json.load(f)
-        return data["addresses"],data["size"]
+        return data["addresses"],data["size"],data.get("float",False)
 
 if __name__ == "__main__": # just to make sure the terminal doesn't open :P
 

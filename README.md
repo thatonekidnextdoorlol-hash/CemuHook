@@ -1,5 +1,6 @@
 # CemuTap
-![Hackatime](https://hackatime.hackclub.com/api/v1/badge/U0C4E7F1317/thatonekidnextdoorlol-hash/CemuTap) 
+![Hackatime](https://hackatime.hackclub.com/api/v1/badge/U0C4E7F1317/thatonekidnextdoorlol-hash/CemuTap)
+<br>
 <img src="CemuTap.png" width="300px">
 
 CemuTap is a free and open source alternative to Cheat Engine's memory scanner, designed specifically for the Cemu Wii U Emulator.
@@ -47,4 +48,4 @@ Steps:
 ## Limitations
 - Only scans MEM2 (0x10000000 to 0x50000000)
 
-A Tool By GABEWARE<img src="GABEWARE.png" width="50%">
+A Tool By GABEWARE<img src="GABEWARE.png" width="16px">

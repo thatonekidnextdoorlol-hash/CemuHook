@@ -4,7 +4,7 @@ import json
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue
 settings = loadcts()
 import os
 from datetime import datetime
@@ -13,6 +13,7 @@ found = []
 previous =[]
 pinnedtabs = {}
 frozen=None
+scanfloat = False
 scansize = 2
 buttonstate = "!disabled"
 
@@ -45,7 +46,7 @@ valuelabel.grid(row=0, column=0, padx=8, pady=8)
 valuebox = ttk.Entry(scantab)
 valuebox.grid(row=0, column=1, padx=8, pady=8)
 
-size = ttk.Combobox(scantab, values=["1","2","4"], state="readonly", width=5)
+size = ttk.Combobox(scantab, values=["1","2","4", "Float"], state="readonly", width=5)
 size.grid(row=1, column=1, padx=8, pady=8)
 size.set("2")
 
@@ -63,29 +64,34 @@ def showmatches():
     results.delete(0, "end")
     for addr in found[:500]:
         try:
-            val=readunit(backend,base,addr,scansize)
+            val=readvalue(backend,base,addr,scansize,scanfloat)
+            if scanfloat:
+                val=round(val,4)
         except Exception:
             val = "?"
         results.insert("end", f"{hex(addr)} ({val})")
 
 def scana():
-    global found, scansize, previous
+    global found, scansize, previous, scanfloat
     if backend is None:
         scanstatus.config(text="Not attached to Cemu.")
         return 
+    sizetext=size.get()
+    floattoggle= sizetext=="Float"
     try:
-        value = int(valuebox.get())
-        bytesize = int(size.get())
+        bytesize=4 if floattoggle else int(sizetext)
+        value= float(valuebox.get()) if floattoggle else int(valuebox.get())
     except ValueError:
-        scanstatus.config(text="Value must be a whole number and include only numbers.")
-        return  
-    if not 0<=value<256**bytesize:
+        scanstatus.config(text=f"Please enter a valid number.")
+        return
+    if not floattoggle and not 0<=value<256**bytesize:
         scanstatus.config(text=f"Value must be between 0 and {256 ** bytesize -1}.")
         return
     togglebuttons("disabled")
     try:
-        found,previous = primaryscan(backend, base, value, bytesize, progress=totalprogress)
+        found,previous = primaryscan(backend, base, value, bytesize, floattoggle=floattoggle, progress=totalprogress)
         scansize=bytesize
+        scanfloat = floattoggle
         scanstatus.config(text=f"{len(found)} Address Matches Found")
         showmatches()
         for cb in api.scancallbacks:
@@ -117,13 +123,13 @@ def scanb():
             try:
                 mode=scantype.get().lower()
                 if mode=="exact":
-                    value=int(valuebox.get())
-                    if not 0<=value<256**scansize:
+                    value=float(valuebox.get()) if scanfloat else int(valuebox.get())
+                    if not scanfloat and not 0<=value<256**scansize:
                         scanstatus.config(text=f"Value must be between 0 and {256 ** scansize -1}.")
                         return
                 else:
                     value=0
-                found, previous = nextscan(backend,base,found,previous,value,scansize,mode=mode,progress=progress2)
+                found, previous = nextscan(backend,base,found,previous,value,scansize,mode=mode,floattoggle=scanfloat,progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
                 showmatches()
                 for cb in api.scancallbacks:
@@ -132,7 +138,7 @@ def scanb():
                     except Exception as exc:
                         print(f"A plugin's scan callback failed for reason: {exc}")
             except ValueError:
-                scanstatus.config(text="Value must be a whole number and include only numbers.")
+                scanstatus.config(text="Please enter a valid number.")
                 return
             finally:
                 togglebuttons("!disabled")   
@@ -203,24 +209,24 @@ def exportbuttonevent():
     if not path:
         scanstatus.config(text=f"Save Canceled.")
         return
-    export(path, found, scansize)
+    export(path, found, scansize,scanfloat)
     scanstatus.config(text=f"Scan Exported.")
 
 def importbuttonevent():
-    global found, scansize, previous
+    global found, scansize, previous, scanfloat
     try:
         path=filedialog.askopenfilename(filetypes=[("CemuTap Scan", "*.ctms")])
         if path=="":
             scanstatus.config(text=f"Import Canceled.")
             return
-        found, scansize = importscan(path)
+        found, scansize, scanfloat = importscan(path)
         previous=[]
         for addr in found:
             try:
-                previous.append(readunit(backend,base,addr,scansize))
+                previous.append(readvalue(backend,base,addr,scansize,scanfloat))
             except Exception:
                 previous.append(0)
-        size.set(str(scansize))
+        size.set("Float" if scanfloat else str(scansize))
         scanstatus.config(text=f"Successfully imported CemuTap Scan file.")
         showmatches()
     except Exception:
