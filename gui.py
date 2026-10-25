@@ -36,7 +36,7 @@ toptab.add(pluginstab,text="Plugins")
 settingstab=ttk.Frame(toptab)
 toptab.add(settingstab,text="Settings")
 
-icon = tk.PhotoImage(file=os.path.join(os.path.dirname(__file__), "GABEWARE.png"))
+icon = tk.PhotoImage(file=os.path.join(os.path.dirname(__file__), "CemuTap.png"))
 root.iconphoto(False,icon)
 
 valuelabel = ttk.Label(scantab,text="Value:")
@@ -110,16 +110,20 @@ primaryscanbutton = ttk.Button(scantab, text="New Scan", command=scana)
 primaryscanbutton.grid(row=2,column=0,padx=8,pady=8)
 
 def scanb():
-    global found
+    global found,previous
     if backend is not None:
         if found:
             togglebuttons("disabled")
             try:
-                value = int(valuebox.get())
-                if not 0<=value<256**scansize:
-                    scanstatus.config(text=f"Value must be between 0 and {256 ** scansize -1}.")
-                    return
-                found = nextscan(backend,base,found,value,scansize, progress=progress2)
+                mode=scantype.get().lower()
+                if mode=="exact":
+                    value=int(valuebox.get())
+                    if not 0<=value<256**scansize:
+                        scanstatus.config(text=f"Value must be between 0 and {256 ** scansize -1}.")
+                        return
+                else:
+                    value=0
+                found, previous = nextscan(backend,base,found,previous,value,scansize,mode=mode,progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
                 showmatches()
                 for cb in api.scancallbacks:
@@ -139,10 +143,11 @@ def scanb():
         scanstatus.config(text="Not attached to Cemu.")
 
 def cleartableevent():
-    global found
+    global found,previous
     if found == []:
         return
     found = []
+    previous=[]
     showmatches()
     scanstatus.config(text=f"Address Table Cleared.")
 
@@ -151,6 +156,10 @@ bytesizelabel.grid(row=1, column=0, padx=8, pady=8)
 
 nextscanbutton = ttk.Button(scantab, text="Next Scan", command=scanb)
 nextscanbutton.grid(row=3,column=0,padx=8,pady=8)
+
+scantype=ttk.Combobox(scantab, values=["Exact", "Increased","Decreased","Changed","Unchanged"], state="readonly")
+scantype.grid(row=3,column=1,padx=8,pady=8)
+scantype.set("Exact")
 
 results = tk.Listbox(scantab, width=40, height=12, bg="#2c2c2c",fg="#ffffff",borderwidth=0,highlightthickness=1,highlightbackground="#3a3a3a")
 results.grid(row=0,column=2,rowspan=5,padx=8,pady=8)
@@ -198,13 +207,19 @@ def exportbuttonevent():
     scanstatus.config(text=f"Scan Exported.")
 
 def importbuttonevent():
-    global found, scansize
+    global found, scansize, previous
     try:
         path=filedialog.askopenfilename(filetypes=[("CemuTap Scan", "*.ctms")])
         if path=="":
             scanstatus.config(text=f"Import Canceled.")
             return
         found, scansize = importscan(path)
+        previous=[]
+        for addr in found:
+            try:
+                previous.append(readunit(backend,base,addr,scansize))
+            except Exception:
+                previous.append(0)
         size.set(str(scansize))
         scanstatus.config(text=f"Successfully imported CemuTap Scan file.")
         showmatches()

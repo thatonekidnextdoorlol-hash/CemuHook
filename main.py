@@ -171,9 +171,22 @@ def primaryscan(backend, base, value, size, progress = None):
             progress(guest-0x10000000 + 0x100000)
      return found, [value]*len(found)
 
-def nextscan(backend, base, found, value, size, progress = None):
-     target=value.to_bytes(size,"big")
+def keep(mode,current,old,value):
+    if mode=="exact":
+        return current==value
+    if mode=="increased":
+        return current> old
+    if mode=="decreased":
+        return current < old
+    if mode== "changed":
+        return current != old
+    if mode=="unchanged":
+        return current == old
+    return False #if none pass ofc
+
+def nextscan(backend, base, found, previous, value, size, mode="exact",progress = None):
      survivors = []
+     survivingvalues=[]
      start=None
      chunk=None
      for i, addr in enumerate(found):
@@ -188,11 +201,16 @@ def nextscan(backend, base, found, value, size, progress = None):
                  except Exception:
                      chunk=None
              start=chunkbegin
-         if chunk is not None and chunk[offset:offset+size]==target:
-             survivors.append(addr)
+         if chunk is not None:
+             raw=chunk[offset:offset+size]
+             if len(raw)==size:
+                 current = int.from_bytes(raw, "big")
+                 if keep(mode,current,previous[i],value):
+                     survivors.append(addr)
+                     survivingvalues.append(current)
          if progress is not None and i%10000==0:
              progress(i,len(found))
-     return survivors
+     return survivors,survivingvalues
 
 def export(path, found, size):
     data = {"version": 1, "size": size, "addresses": found}
@@ -227,7 +245,7 @@ if __name__ == "__main__": # just to make sure the terminal doesn't open :P
          if text == "":
              break
          newvalue = int(text)
-         found = nextscan(backend, base, found, newvalue, searchsize)
+         found,previous = nextscan(backend, base, found, previous, newvalue, searchsize)
          print(len(found))
          if len(found) <= 25:
              print([hex(a) for a in found[:25]])
