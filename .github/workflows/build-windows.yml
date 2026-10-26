@@ -10,8 +10,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pymem psutil sv-ttk pyinstaller pillow
-      - run: python -m PyInstaller --onefile --windowed --name CemuTap --icon GABEWARE.png --add-data "GABEWARE.png;." --collect-data sv_ttk --hidden-import pymem --collect-submodules asyncio --hidden-import struct --hidden-import uuid --hidden-import socket gui.py
+      - run: pip install pymem psutil sv-ttk numpy pyinstaller pillow
+      - run: python -m PyInstaller --onefile --windowed --name CemuTap --icon CemuTap.png --add-data "CemuTap.png;." --collect-data sv_ttk --hidden-import pymem --collect-submodules asyncio --hidden-import struct --hidden-import uuid --hidden-import socket gui.py
       - uses: actions/upload-artifact@v4
         with:
           name: CemuTap-Windows

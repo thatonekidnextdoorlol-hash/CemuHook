@@ -329,6 +329,19 @@ def write():
 
 writebutton.config(command=write)
 
+def sendaddresstoeditor(event):
+    selection = results.curselection()
+    if not selection:
+        return
+    addr = found[selection[0]]
+    editoraddr.delete(0,"end")
+    editoraddr.insert(0,hex(addr))
+    editorsize.set("Float" if scanfloat else str(scansize))
+    toptab.select(liveedittab)
+results.bind("<Double-Button-1>",sendaddresstoeditor)
+
+
+
 def refloop():
     if 0<len(found)<=12:
         showmatches()

@@ -26,6 +26,11 @@ A simpler, mini tutorial on how to scan using CemuTap can be found here: https:/
 ## CemuTap Scan Files (.ctms)
 You can export found addresses to save for later usage via the "Export Scan" button. Exported addresses are saved as a ctms (CemuTap Scan File) file, including the date and time of your export as its name. If you ever want to recover a saved export, you can use the "Import Scan" button, which asks for a .ctms file. 
 
+# Live Address Editor
+CemuTap allows you to edit the live values of addresses in-game using the **Live Address Editor** tab.
+1. Enter an address in hex (e.g. `0x36d3ea3a`), then choose it's byte size.
+2. Enter a **New Value** then click **Write** to change the in-game value once.
+3. Additionally, you can also use the **Freeze Value** button to lock the new value. To unfreeze a value, you can click on the **Unfreeze** button after freezing.
 # Plugins
 Documentation and information about using and creating CemuTap plugins can be found in [PLUGINS.md](PLUGINS.md).
 
