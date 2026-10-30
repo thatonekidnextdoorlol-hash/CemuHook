@@ -146,7 +146,17 @@ def findbase():
              lpopt = f.read()
              matches = re.findall(pattern, lpopt)
              return int(matches[-1], 16)
-        
+
+
+def findtitleid():
+    logpath = findlog()
+    if logpath is None:
+        return None
+    with open(logpath,errors= "ignore") as file:
+        matches = re.findall(r"00050000-?([0-9A-Fa-f]{8})", file.read())
+    if not matches:
+        return None
+    return "00050000" + matches[-1].upper()
 def readunit(backend, base, guest, size):
     hostaddress = base + guest
     habo =  backend.read(hostaddress, size)

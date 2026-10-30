@@ -4,7 +4,7 @@ import json
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue, snapshot, snapshotscan
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue, snapshot, snapshotscan, findtitleid
 settings = loadcts()
 import os
 from datetime import datetime
@@ -12,6 +12,7 @@ from datetime import datetime
 found = []
 previous =[]
 pinnedtabs = {}
+tablerows = {}
 backend = None
 snapshotpath=None
 frozen=None
@@ -33,6 +34,9 @@ toptab.add(scantab,text="Scan")
 
 liveedittab=ttk.Frame(toptab)
 toptab.add(liveedittab, text="Live Address Editor")
+
+tabletab=ttk.Frame(toptab)
+toptab.add(tabletab,text="Address Table")
 
 pluginstab=ttk.Frame(toptab)
 toptab.add(pluginstab,text="Plugins")
@@ -206,6 +210,35 @@ scantype.set("Exact")
 results = tk.Listbox(scantab, width=40, height=12, bg="#2c2c2c",fg="#ffffff",borderwidth=0,highlightthickness=1,highlightbackground="#3a3a3a")
 results.grid(row=0,column=2,rowspan=5,padx=8,pady=8)
 
+table = ttk.Treeview(tabletab,columns=("name","address","type","value","title"),show="headings")
+table.heading("name", text="Name")
+table.heading("address",text="Address")
+table.heading("type",text="Type")
+table.heading("value",text="Value")
+table.heading("title",text="Title")
+
+table.column("name",width=120)
+table.column("address",width=110)
+table.column("type",width=60)
+table.column("value",width=90)
+table.column("title",width=140)
+
+table.grid(row=0,column=0,padx=8,pady=8,sticky="nsew")
+tabletab.rowconfigure(0, weight=1)
+tabletab.columnconfigure(0, weight=1)
+
+def addtotable():
+    selection=results.curselection()
+    if not selection:
+        scanstatus.config(text="Please select a result to add to the address table.")
+        return
+    address = found[selection[0]]
+    title = findtitleid() or "?"
+    typetext="Float" if scanfloat else str(scansize)
+    iid=table.insert("","end",values=("New Address",hex(address),typetext,"?",title))
+    tablerows[iid]={"address":address,"size":scansize,"float":scanfloat}
+    scanstatus.config(text=f"Successfully added {hex(address)} to the Address Table!")
+
 def addrtablecolors():
     if sv_ttk.get_theme()=="dark":
         results.config(bg="#2c2c2c",fg="#ffffff",highlightbackground="#3a3a3a")
@@ -299,8 +332,15 @@ exportbutton = ttk.Button(scantab,text="Export Scan", command=exportbuttonevent)
 exportbutton.grid(row=5,column=0,padx=8,pady=8)
 importbutton = ttk.Button(scantab,text="Import Scan", command=importbuttonevent)
 importbutton.grid(row=5,column=1,padx=8,pady=8)
-resettable = ttk.Button(scantab, text="Clear Address Table", command=cleartableevent)
-resettable.grid(row=5,column=2,padx=8,pady=8)
+
+tablecontrols = ttk.Frame(scantab)
+tablecontrols.grid(row=5,column=2,padx=8,pady=8)
+
+resettable = ttk.Button(tablecontrols, text="Clear Address Table", command=cleartableevent)
+resettable.pack(side=tk.LEFT,padx=8)
+
+addtotablebutton=ttk.Button(tablecontrols,text="Add Value to Table",command=addtotable)
+addtotablebutton.pack(side=tk.LEFT,padx=8)
 
 def editortype():
     text=editorsize.get()
@@ -346,6 +386,13 @@ def refloop():
     if 0<len(found)<=12:
         showmatches()
     root.after(1000,refloop)
+    for iid,row in tablerows.items():
+        try:
+            val=readvalue(backend,base,row["address"],row["size"],row["float"])
+            text=str(round(val,4) if row["float"] else val)
+        except Exception:
+            text="?"
+        table.set(iid,"value",text)
     try:
         address=int(editoraddr.get(),16)
         editorbytesize,isfloat=editortype()
