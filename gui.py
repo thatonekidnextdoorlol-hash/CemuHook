@@ -4,6 +4,7 @@ import json
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
+from tkinter import simpledialog
 from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue, snapshot, snapshotscan, findtitleid
 settings = loadcts()
 import os
@@ -239,6 +240,34 @@ def addtotable():
     tablerows[iid]={"address":address,"size":scansize,"float":scanfloat}
     scanstatus.config(text=f"Successfully added {hex(address)} to the Address Table!")
 
+def edittable(event):
+    iid=table.identify_row(event.y)
+    column=table.identify_column(event.x)
+    if not iid:
+        return
+    row = tablerows[iid]
+    if column in ("#1","#5"):
+        key="name" if column == "#1" else "title"
+        text=simpledialog.askstring("Edit",f"New {key}:",initialvalue=table.set(iid,key))
+        if text is not None:
+            table.set(iid,key,text)
+    elif column == "#4":
+        text = simpledialog.askstring("Edit", "New Value:")
+        if text is None: return
+        try:
+            if row["float"]:
+                value=float(text)
+            else:
+                value=int(text)
+            if not row["float"] and not 0<=value<256**row["size"]:
+                raise ValueError
+            writevalue(backend,base,row["address"],row["size"],value,row["float"])
+        except ValueError:
+            messagebox.showerror("Edit", "Please enter a valid number for the current byte size.")
+        except Exception as exc:
+            messagebox.showerror("Edit", f"Write Failed For Reason: {exc}")
+table.bind("<Double-Button-1>",edittable)
+    
 def addrtablecolors():
     if sv_ttk.get_theme()=="dark":
         results.config(bg="#2c2c2c",fg="#ffffff",highlightbackground="#3a3a3a")
