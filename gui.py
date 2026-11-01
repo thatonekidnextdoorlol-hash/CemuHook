@@ -228,6 +228,17 @@ table.grid(row=0,column=0,padx=8,pady=8,sticky="nsew")
 tabletab.rowconfigure(0, weight=1)
 tabletab.columnconfigure(0, weight=1)
 
+tablebuttons = ttk.Frame(tabletab)
+tablebuttons.grid(row=1,column=0,padx=8,pady=8,sticky="w")
+
+table.tag_configure("frozen",foreground="#78b6f5")
+
+def removetablevalue():
+    for iid in table.selection():
+        table.delete(iid)
+        tablerows.pop(iid,None)
+ttk.Button(tablebuttons,text="Remove Row",command=removetablevalue).pack(side="left",padx=(0,8))
+
 def addtotable():
     selection=results.curselection()
     if not selection:
@@ -240,6 +251,20 @@ def addtotable():
     tablerows[iid]={"address":address,"size":scansize,"float":scanfloat}
     scanstatus.config(text=f"Successfully added {hex(address)} to the Address Table!")
 
+def tablefreezeevent():
+    for iid in table.selection():
+        row=tablerows[iid]
+        if row.get("frozen") is not None:
+            row["frozen"]=None
+            table.item(iid,tags=())
+        else:
+            try:
+                row["frozen"]=readvalue(backend,base,row["address"],row["size"],row["float"])
+                table.item(iid,tags=("frozen",))
+            except Exception:
+                pass
+ttk.Button(tablebuttons,text="Toggle Freeze",command=tablefreezeevent).pack(side="left")
+
 def edittable(event):
     iid=table.identify_row(event.y)
     column=table.identify_column(event.x)
@@ -248,11 +273,11 @@ def edittable(event):
     row = tablerows[iid]
     if column in ("#1","#5"):
         key="name" if column == "#1" else "title"
-        text=simpledialog.askstring("Edit",f"New {key}:",initialvalue=table.set(iid,key))
+        text=simpledialog.askstring("Edit",f"New {key}:",initialvalue=table.set(iid,key),parent=root)#parent=root fixed the crash for some reason, don't remove it
         if text is not None:
             table.set(iid,key,text)
     elif column == "#4":
-        text = simpledialog.askstring("Edit", "New Value:")
+        text = simpledialog.askstring("Edit", "New Value:",parent=root)
         if text is None: return
         try:
             if row["float"]:
@@ -263,11 +288,11 @@ def edittable(event):
                 raise ValueError
             writevalue(backend,base,row["address"],row["size"],value,row["float"])
         except ValueError:
-            messagebox.showerror("Edit", "Please enter a valid number for the current byte size.")
+            messagebox.showerror("Edit", "Please enter a valid number for the current byte size.",parent=root)
         except Exception as exc:
-            messagebox.showerror("Edit", f"Write Failed For Reason: {exc}")
+            messagebox.showerror("Edit", f"Write Failed For Reason: {exc}",parent=root)
 table.bind("<Double-Button-1>",edittable)
-    
+
 def addrtablecolors():
     if sv_ttk.get_theme()=="dark":
         results.config(bg="#2c2c2c",fg="#ffffff",highlightbackground="#3a3a3a")
@@ -462,6 +487,12 @@ def loopfreeze():
             writevalue(backend,base,*frozen)#unpack frozen also
         except Exception:
             pass
+    for row in tablerows.values():
+        if row.get("frozen") is not None:
+            try:
+                writevalue(backend,base,row["address"],row["size"],row["frozen"],row["float"])
+            except Exception:
+                pass
     root.after(100,loopfreeze)
 
 def pluginselectevent(event):
@@ -487,7 +518,7 @@ def pluginadd():
     try:
         folder=plugininstall(path)
     except Exception as exc:
-        messagebox.showerror("Add Plugin", f"Couldn't install plugin for reason: {exc}")
+        messagebox.showerror("Add Plugin", f"Couldn't install plugin for reason: {exc}",parent=root)
         return
     if api is None:
         messagebox.showinfo("Add Plugin", "Plugin Installed. It will load on CemuTap's next attachment to Cemu.")
