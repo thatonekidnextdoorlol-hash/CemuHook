@@ -5,7 +5,7 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import simpledialog
-from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue, snapshot, snapshotscan, findtitleid
+from main import WindowsBackend, findbase, primaryscan, nextscan, export, importscan, readunit, backendcreate, loadcts, savesettings, PluginAPI, pluginslistbuild,executeplugin, plugininstall, writeu,readvalue, writevalue, snapshot, snapshotscan, findtitleid, savetable, loadtable, valuerange
 settings = loadcts()
 import os
 from datetime import datetime
@@ -18,6 +18,7 @@ backend = None
 snapshotpath=None
 frozen=None
 scanfloat = False
+scansigned=False
 base = 0
 scansize = 2
 buttonstate = "!disabled"
@@ -54,9 +55,16 @@ valuelabel.grid(row=0, column=0, padx=8, pady=8)
 valuebox = ttk.Entry(scantab)
 valuebox.grid(row=0, column=1, padx=8, pady=8)
 
-size = ttk.Combobox(scantab, values=["1","2","4", "Float"], state="readonly", width=5)
-size.grid(row=1, column=1, padx=8, pady=8)
+sizeframe = ttk.Frame(scantab)
+sizeframe.grid(row=1,column=1,pady=8,padx=8)
+
+size = ttk.Combobox(sizeframe, values=["1","2","4", "Float"], state="readonly", width=5)
+size.pack(side="left")
 size.set("2")
+
+signedvar = tk.BooleanVar(value=False)
+ttk.Checkbutton(sizeframe,text="Signed",variable=signedvar).pack(side="left",padx=(8,0))
+
 
 pluginlist=tk.Listbox(pluginstab,width=25,borderwidth=0,highlightthickness=1)
 pluginlist.grid(row=0,sticky="ns",column=0,pady=8,padx=8)
@@ -72,7 +80,7 @@ def showmatches():
     results.delete(0, "end")
     for addr in found[:500]:
         try:
-            val=readvalue(backend,base,addr,scansize,scanfloat)
+            val=readvalue(backend,base,addr,scansize,scanfloat,scansigned)
             if scanfloat:
                 val=round(val,4)
         except Exception:
@@ -80,7 +88,7 @@ def showmatches():
         results.insert("end", f"{hex(addr)} ({val})")
 
 def scana():
-    global found, scansize, previous, scanfloat, snapshotpath
+    global found, scansize, previous, scanfloat, snapshotpath, scansigned
     if backend is None:
         scanstatus.config(text="Not attached to Cemu.")
         return 
@@ -94,6 +102,7 @@ def scana():
             previous=[]
             scansize=4 if isfloat else int(sizetext)
             scanfloat=isfloat
+            scansigned = signedvar.get() and not isfloat
             showmatches()
             scanstatus.config(text="Snapshot taken! Change the value in game, then use Next Scan.")
         finally:
@@ -107,14 +116,17 @@ def scana():
     except ValueError:
         scanstatus.config(text=f"Please enter a valid number.")
         return
-    if not floattoggle and not 0<=value<256**bytesize:
-        scanstatus.config(text=f"Value must be between 0 and {256 ** bytesize -1}.")
-        return
     togglebuttons("disabled")
     try:
-        found,previous = primaryscan(backend, base, value, bytesize, floattoggle=floattoggle, progress=totalprogress)
+        issigned=signedvar.get() and not floattoggle
+        low,high = valuerange(bytesize,issigned)
+        if not floattoggle and not low <= value <= high:
+            scanstatus.config(text=f"Value must be between {low} and {high}.")
+            return
+        found,previous = primaryscan(backend, base, value, bytesize, floattoggle=floattoggle, signed=issigned, progress=totalprogress)
         scansize=bytesize
         scanfloat = floattoggle
+        scansigned=issigned
         scanstatus.config(text=f"{len(found)} Address Matches Found")
         showmatches()
         for cb in api.scancallbacks:
@@ -151,20 +163,21 @@ def scanb():
                 mode=scantype.get().lower()
                 if mode=="exact":
                     value=float(valuebox.get()) if scanfloat else int(valuebox.get())
-                    if not scanfloat and not 0<=value<256**scansize:
-                        scanstatus.config(text=f"Value must be between 0 and {256 ** scansize -1}.")
+                    low,high = valuerange(scansize,scansigned)
+                    if not scanfloat and not low <= value <= high:
+                        scanstatus.config(text=f"Value must be between {low} and {high}.")
                         return
                 else:
                     value=0
                 if snapshotpath is not None:
-                    found,previous=snapshotscan(backend,base,snapshotpath,scansize,mode,value,scanfloat,progress=totalprogress)
+                    found,previous=snapshotscan(backend,base,snapshotpath,scansize,mode,value,scanfloat,signed=scansigned,progress=totalprogress)
                     try:
                         os.remove(snapshotpath)
                     except OSError:
                         pass
                     snapshotpath=None
                 else:
-                    found,previous= nextscan(backend,base,found,previous,value,scansize,mode=mode,floattoggle=scanfloat,progress=progress2)
+                    found,previous= nextscan(backend,base,found,previous,value,scansize,mode=mode,floattoggle=scanfloat,signed=scansigned,progress=progress2)
                 scanstatus.config(text=f"{len(found)} Address Matches Found")
                 showmatches()
                 for cb in api.scancallbacks:
@@ -264,6 +277,44 @@ def tablefreezeevent():
             except Exception:
                 pass
 ttk.Button(tablebuttons,text="Toggle Freeze",command=tablefreezeevent).pack(side="left")
+
+def tablelist():
+    rows=[]
+    for iid,row in tablerows.items():
+        rows.append({
+            "name":table.set(iid,"name"),
+            "title":table.set(iid,"title"),
+            "address":row["address"],
+            "size":row["size"],
+            "float":row["float"],
+        })
+    return rows
+
+def filltable(rows):
+    for iid in list(tablerows):
+        table.delete(iid)
+    tablerows.clear()
+    for row1 in rows:
+        typetext = "Float" if row1["float"] else str(row1["size"])
+        iid=table.insert("","end",values=(row1["name"],hex(row1["address"]),typetext,"?",row1["title"]))
+        tablerows[iid] = {"address": row1["address"], "size":row1["size"], "float":row1["float"]}
+
+def exporttable():
+    path=filedialog.asksaveasfilename(defaultextension=".ctmt",filetypes=[("CemuTap Table","*.ctmt")],parent=root)
+    if path:
+        savetable(path,tablelist())
+
+def importtable():
+    path=filedialog.askopenfilename(filetypes=[("CemuTap Table","*.ctmt")],parent=root)
+    if not path:
+        return
+    try:
+        filltable(loadtable(path))
+    except Exception:
+        messagebox.showerror("Import Table", "Couldn't read selected file. Are you sure it is a CemuTap table?",parent=root)
+
+ttk.Button(tablebuttons,text="Export Table",command=exporttable).pack(side="left",padx=(8,0))
+ttk.Button(tablebuttons,text="Import Table",command=importtable).pack(side="left",padx=(8,0))
 
 def edittable(event):
     iid=table.identify_row(event.y)

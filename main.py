@@ -162,20 +162,31 @@ def readunit(backend, base, guest, size):
     habo =  backend.read(hostaddress, size)
     return int.from_bytes(habo, "big")
 
-def readvalue(backend,base,guest,size,floattoggle=False):
+def dtypefor(size,floattoggle=False,signed=False):
+    if floattoggle:
+        return ">f4"
+    return f">i{size}" if signed else f">u{size}"#returns >i(size) if value is signed, if it isn't it returns >u(size)
+
+def valuerange(size,signed=False):
+    if signed:
+        half = 256**size//2
+        return -half, half-1
+    return 0,256**size-1
+
+def readvalue(backend,base,guest,size,floattoggle=False, signed=False):
     raw=backend.read(base+guest,size)
-    dtype =">f4" if floattoggle else f">u{size}"
+    dtype =dtypefor(size,floattoggle, signed)
     return np.frombuffer(raw,dtype=dtype)[0].item()
 
-def writevalue(backend,base,guest,size,value,floattoggle=False):
-    dtype=">f4"if floattoggle else f">u{size}"
+def writevalue(backend,base,guest,size,value,floattoggle=False,signed=False):
+    dtype=dtypefor(size,floattoggle,signed)
     backend.write(base+guest,np.array([value], dtype=dtype).tobytes())
 
 def writeu(backend,base,guest,size,value):
     backend.write(base+guest,value.to_bytes(size,"big"))
 
-def primaryscan(backend, base, value, size, floattoggle=False,progress = None):
-     dtype=">f4" if floattoggle else f">u{size}"
+def primaryscan(backend, base, value, size, floattoggle=False,signed=False,progress = None):
+     dtype=dtypefor(size,floattoggle,signed)
      found = []
      values=[]
      
@@ -208,8 +219,8 @@ def snapshot(backend,base,progress=None):
                 progress(guest-0x10000000+0x100000)
     return path
 
-def snapshotscan(backend,base,path,size,mode,value=0,floattoggle=False,progress=None):
-    dtype=">f4" if floattoggle else f">u{size}"
+def snapshotscan(backend,base,path,size,mode,value=0,floattoggle=False,signed=False,progress=None):
+    dtype=dtypefor(size,floattoggle,signed)
     found=[]
     values=[]
     with open(path,"rb") as file:
@@ -259,8 +270,8 @@ def keep(mode,current,old,value,floattoggle=False):
         return current == old or (current != current and old != old)
     return False #if none pass ofc
 
-def nextscan(backend, base, found, previous, value, size, mode="exact",floattoggle=False,progress = None):
-     dtype=">f4" if floattoggle else f">u{size}"
+def nextscan(backend, base, found, previous, value, size, mode="exact",floattoggle=False,signed=False,progress = None):
+     dtype=dtypefor(size,floattoggle,signed)
      survivors = []
      survivingvalues=[]
      start=None
@@ -298,6 +309,15 @@ def importscan(path):
         data=json.load(f)
         return data["addresses"],data["size"],data.get("float",False)
 
+def savetable(path,rows):
+    data={"version":1,"rows":rows}
+    with open(path,"w") as file:
+        json.dump(data,file)
+
+def loadtable(path):
+    with open(path) as file:
+        return json.load(file)["rows"]
+
 if __name__ == "__main__": # just to make sure the terminal doesn't open :P
 
      backend = WindowsBackend()
@@ -327,4 +347,3 @@ if __name__ == "__main__": # just to make sure the terminal doesn't open :P
              print([hex(a) for a in found[:25]])
          else:
              print(f"Matches Over 25. Showing First 25 Found: {[hex(a) for a in found[:25]]}")
-
