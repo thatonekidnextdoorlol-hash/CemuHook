@@ -4,3 +4,4 @@ dist/
 CemuTap.spec
 __pycache__/
 .venv/
+dl.md

@@ -413,9 +413,14 @@ editoraddr.grid(row=0,column=1,padx=8,pady=8)
 #row1
 sizelabel=ttk.Label(liveedittab,text="Byte Size To Modify:")
 sizelabel.grid(row=1, column=0, padx=8, pady=8)
-editorsize=ttk.Combobox(liveedittab, values=["1","2","4","Float"], state="readonly", width=5)
-editorsize.grid(row=1, column=1, padx=8, pady=8)
+editorsizeframe=ttk.Frame(liveedittab)
+editorsizeframe.grid(row=1,column=1,padx=8,pady=8)
+#   editor size frame
+editorsize=ttk.Combobox(editorsizeframe, values=["1","2","4","Float"], state="readonly", width=5)
+editorsize.pack(side="left")
 editorsize.set("2")
+editorsigned=tk.BooleanVar(value=False)
+ttk.Checkbutton(editorsizeframe,text="Signed",variable=editorsigned).pack(side="left",padx=(8,0))
 #row2
 currentvaluelabel=ttk.Label(liveedittab,text="Current Value:")
 currentvaluelabel.grid(row=2,column=0,pady=8,padx=8)
@@ -450,7 +455,8 @@ addtotablebutton.pack(side=tk.LEFT,padx=8)
 def editortype():
     text=editorsize.get()
     floattoggle=text=="Float"
-    return (4 if floattoggle else int(text)), floattoggle #returns 4 is floattoggle is valid
+    signed=editorsigned.get() and not floattoggle
+    return (4 if floattoggle else int(text)), floattoggle, signed #returns 4 is floattoggle is valid
 
 def write():
     if backend is None:
@@ -458,16 +464,17 @@ def write():
         return
     try:
         address=int(editoraddr.get(),16)
-        editorbytesize, isfloat =editortype()
+        editorbytesize, isfloat, issigned = editortype()
         value=float(newvalue.get()) if isfloat else int(newvalue.get())
     except ValueError:
         editorstatus.config(text="Please enter a hex address and a valid number.")
         return
-    if not isfloat and not 0 <= value < 256 ** editorbytesize:
-        editorstatus.config(text=f"New Value must be between 0 to {256**editorbytesize-1}.")
+    low,high = valuerange(editorbytesize,issigned)
+    if not isfloat and not low<=value<=high:
+        editorstatus.config(text=f"New Value must be between {low} and {high}.")
         return
     try:
-        writevalue(backend,base,address,editorbytesize,value,isfloat)
+        writevalue(backend,base,address,editorbytesize,value,isfloat,issigned)
         editorstatus.config(text=f"Wrote {value} to address {hex(address)}.")
     except Exception as exc:
         editorstatus.config(text=f"Write failed for reason: {exc}")
@@ -482,6 +489,7 @@ def sendaddresstoeditor(event):
     editoraddr.delete(0,"end")
     editoraddr.insert(0,hex(addr))
     editorsize.set("Float" if scanfloat else str(scansize))
+    editorsigned.set(scansigned)
     toptab.select(liveedittab)
 results.bind("<Double-Button-1>",sendaddresstoeditor)
 
@@ -500,8 +508,8 @@ def refloop():
         table.set(iid,"value",text)
     try:
         address=int(editoraddr.get(),16)
-        editorbytesize,isfloat=editortype()
-        value=readvalue(backend,base,address,editorbytesize,isfloat)
+        editorbytesize,isfloat,issigned=editortype()
+        value=readvalue(backend,base,address,editorbytesize,isfloat,issigned)
         currentedit.config(text=str(round(value,4) if isfloat else value))
     except Exception:
         currentedit.config(text="?")
@@ -518,15 +526,16 @@ def togglefreezevalue():
         return
     try:
         address=int(editoraddr.get(),16)
-        editorbytesize, isfloat =editortype()
+        editorbytesize, isfloat, issigned =editortype()
         value=float(newvalue.get()) if isfloat else int(newvalue.get())
     except ValueError:
         editorstatus.config(text="Please enter a hex address and a valid number.")
         return
-    if not isfloat and not 0 <= value < 256 ** editorbytesize:
-        editorstatus.config(text=f"New Value must be between 0 to {256**editorbytesize-1}.")
+    low,high = valuerange(editorbytesize,issigned)
+    if not isfloat and not low<=value<=high:
+        editorstatus.config(text=f"New Value must be between {low} and {high}.")
         return
-    frozen=(address,editorbytesize,value,isfloat)
+    frozen=(address,editorbytesize,value,isfloat,issigned)
     freezebutton.config(text="Unfreeze")
     editorstatus.config(text=f"Froze address {hex(address)} at {value}.")
 
