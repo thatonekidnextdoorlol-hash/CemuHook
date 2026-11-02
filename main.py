@@ -300,7 +300,7 @@ def nextscan(backend, base, found, previous, value, size, mode="exact",floattogg
      return survivors,survivingvalues
 
 def export(path, found, size,floattoggle=False):
-    data = {"version": 2, "size": size, "float": floattoggle, "addresses": found} #CHANGE WHENEVER UPDATED !!!
+    data = {"version": 3, "size": size, "float": floattoggle, "addresses": found} #CHANGE WHENEVER UPDATED !!!
     with open(path,"w") as f:
         json.dump(data,f)
 

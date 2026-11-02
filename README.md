@@ -6,10 +6,16 @@
 CemuTap is a free and open source alternative to Cheat Engine's memory scanner, designed specifically for the Cemu Wii U Emulator.
 
 ## Features
-- Set scan byte query size from 1 byte, 2 bytes, and 4 bytes.
+- Set scan byte query size from 1 byte, 2 bytes, 4 bytes, floats, and even unknown initial values.
 - Scan for specific integers in Cemu's memory and returns matching addresses.
-- Filter out addresses that don't match a new value after each scan.
+- Filter out addresses that don't match a new value after each scan or do not meet a certain criteria (ex. "Changed", "Unchanged", "Increased"...).
 - Export and Save found addresses.
+- Modify address values in-game using the Live Address Editor.
+- Freeze in-game addresses at a specific value.
+- Create or use community made CemuTap python plugins.
+- Address Table: Save addresses with names, watch their live values, edit their live values, and bulk freeze several values at once all from a single page.
+- Export and import Address Tables as a ``.ctms`` file to keep or share per game.
+- Signed integers, so negative address values can be both read and written correctly.
 
 ## Requirements
 - Windows or Linux
@@ -31,6 +37,13 @@ CemuTap allows you to edit the live values of addresses in-game using the **Live
 1. Enter an address in hex (e.g. `0x36d3ea3a`), then choose it's byte size.
 2. Enter a **New Value** then click **Write** to change the in-game value once.
 3. Additionally, you can also use the **Freeze Value** button to lock the new value. To unfreeze a value, you can click on the **Unfreeze** button after freezing.
+
+## Address Table
+1. Select any address output after a scan in the scan tab's address table, then click "Add Value to Table.".
+2. Double-click a row's `Name` or `Title` to rename it, or double click it's `Value` to modify the in-game value.
+3. Select rows (Ctrl + Click for several) and click on the "Toggle Freeze" to freeze their current value.
+4. Use "Export Table" and "Import Table" to save and load tables as ``.ctmt`` files.
+
 # Plugins
 Documentation and information about using and creating CemuTap plugins can be found in [PLUGINS.md](PLUGINS.md).
 

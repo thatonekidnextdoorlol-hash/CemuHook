@@ -233,7 +233,7 @@ table.heading("title",text="Title")
 
 table.column("name",width=120)
 table.column("address",width=110)
-table.column("type",width=60)
+table.column("type",width=90)
 table.column("value",width=90)
 table.column("title",width=140)
 
@@ -252,6 +252,11 @@ def removetablevalue():
         tablerows.pop(iid,None)
 ttk.Button(tablebuttons,text="Remove Row",command=removetablevalue).pack(side="left",padx=(0,8))
 
+def typelabel(size,isfloat,signed):
+    if isfloat:
+        return "Float"
+    return f"{size} Signed" if signed else str(size)
+
 def addtotable():
     selection=results.curselection()
     if not selection:
@@ -259,9 +264,9 @@ def addtotable():
         return
     address = found[selection[0]]
     title = findtitleid() or "?"
-    typetext="Float" if scanfloat else str(scansize)
+    typetext=typelabel(scansize,scanfloat,scansigned)
     iid=table.insert("","end",values=("New Address",hex(address),typetext,"?",title))
-    tablerows[iid]={"address":address,"size":scansize,"float":scanfloat}
+    tablerows[iid]={"address":address,"size":scansize,"float":scanfloat,"signed":scansigned}
     scanstatus.config(text=f"Successfully added {hex(address)} to the Address Table!")
 
 def tablefreezeevent():
@@ -272,7 +277,7 @@ def tablefreezeevent():
             table.item(iid,tags=())
         else:
             try:
-                row["frozen"]=readvalue(backend,base,row["address"],row["size"],row["float"])
+                row["frozen"]=readvalue(backend,base,row["address"],row["size"],row["float"],row.get("signed",False))
                 table.item(iid,tags=("frozen",))
             except Exception:
                 pass
@@ -287,6 +292,7 @@ def tablelist():
             "address":row["address"],
             "size":row["size"],
             "float":row["float"],
+            "signed":row.get("signed",False),
         })
     return rows
 
@@ -295,9 +301,10 @@ def filltable(rows):
         table.delete(iid)
     tablerows.clear()
     for row1 in rows:
-        typetext = "Float" if row1["float"] else str(row1["size"])
+        signed=row1.get("signed",False)
+        typetext = typelabel(row1["size"],row1["float"],signed)
         iid=table.insert("","end",values=(row1["name"],hex(row1["address"]),typetext,"?",row1["title"]))
-        tablerows[iid] = {"address": row1["address"], "size":row1["size"], "float":row1["float"]}
+        tablerows[iid] = {"address": row1["address"], "size":row1["size"], "float":row1["float"], "signed":signed}
 
 def exporttable():
     path=filedialog.asksaveasfilename(defaultextension=".ctmt",filetypes=[("CemuTap Table","*.ctmt")],parent=root)
@@ -335,9 +342,10 @@ def edittable(event):
                 value=float(text)
             else:
                 value=int(text)
-            if not row["float"] and not 0<=value<256**row["size"]:
+            low,high=valuerange(row["size"],row.get("signed",False))
+            if not row["float"] and not low<=value<=high:
                 raise ValueError
-            writevalue(backend,base,row["address"],row["size"],value,row["float"])
+            writevalue(backend,base,row["address"],row["size"],value,row["float"],row.get("signed",False))
         except ValueError:
             messagebox.showerror("Edit", "Please enter a valid number for the current byte size.",parent=root)
         except Exception as exc:
@@ -501,7 +509,7 @@ def refloop():
     root.after(1000,refloop)
     for iid,row in tablerows.items():
         try:
-            val=readvalue(backend,base,row["address"],row["size"],row["float"])
+            val=readvalue(backend,base,row["address"],row["size"],row["float"],row.get("signed",False))
             text=str(round(val,4) if row["float"] else val)
         except Exception:
             text="?"
@@ -550,7 +558,7 @@ def loopfreeze():
     for row in tablerows.values():
         if row.get("frozen") is not None:
             try:
-                writevalue(backend,base,row["address"],row["size"],row["frozen"],row["float"])
+                writevalue(backend,base,row["address"],row["size"],row["frozen"],row["float"],row.get("signed",False))
             except Exception:
                 pass
     root.after(100,loopfreeze)
